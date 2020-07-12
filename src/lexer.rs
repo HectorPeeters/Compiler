@@ -12,6 +12,7 @@ pub enum TokenType {
     LeftParen,
     RightParen,
     SemiColon,
+    Var,
 }
 
 #[derive(Debug)]
@@ -104,8 +105,8 @@ impl<'a> Lexer<'a> {
         Token {
             line: self.current_line,
             col: self.current_col - value.len(),
-            token_type: token_type,
-            value: value,
+            token_type,
+            value,
         }
     }
 
@@ -114,8 +115,28 @@ impl<'a> Lexer<'a> {
         Token {
             line: self.current_line,
             col: self.current_col - value.len(),
-            token_type: token_type,
-            value: value,
+            token_type,
+            value,
+        }
+    }
+
+    fn keyword_to_tokentype(keyword: &str) -> Option<TokenType> {
+        match keyword {
+            "var" => Some(TokenType::Var),
+            _ => None,
+        }
+    }  
+
+    fn tokenize_possible_keyword(&mut self) -> Token {
+        let value = self.consume_while(is_alphabetic);
+
+        let token_type = Self::keyword_to_tokentype(value.as_str()).unwrap_or(TokenType::Identifier);
+
+        Token {
+            line: self.current_line,
+            col: self.current_col - value.len(),
+            token_type,
+            value,
         }
     }
 
@@ -129,10 +150,7 @@ impl<'a> Lexer<'a> {
 
             let token = match current_char.chars().next().unwrap() {
                 '0'..='9' => Some(self.tokenize_multichar(is_numeric, TokenType::IntLiteral)),
-                'a'..='z' | 'A'..='Z' => Some(self.tokenize_multichar(
-                    |c| is_alphabetic(c) || is_numeric(c),
-                    TokenType::Identifier,
-                )),
+                'a'..='z' | 'A'..='Z' => Some(self.tokenize_possible_keyword()),
                 '+' => Some(self.tokenize_single_char(TokenType::Plus)),
                 '-' => Some(self.tokenize_single_char(TokenType::Minus)),
                 '*' => Some(self.tokenize_single_char(TokenType::Star)),

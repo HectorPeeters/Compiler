@@ -27,13 +27,13 @@ fn print_node(node: &AstNode, indentation: usize) {
 fn eval(node: &AstNode) -> i64 {
     match node {
         AstNode::BinaryOperation(op_type, left, right) => match op_type {
-            BinaryOperationType::Add => return eval(left) + eval(right),
-            BinaryOperationType::Subtract => return eval(left) - eval(right),
-            BinaryOperationType::Multiply => return eval(left) * eval(right),
-            BinaryOperationType::Divide => return eval(left) / eval(right),
+            BinaryOperationType::Add => eval(left) + eval(right),
+            BinaryOperationType::Subtract => eval(left) - eval(right),
+            BinaryOperationType::Multiply => eval(left) * eval(right),
+            BinaryOperationType::Divide => eval(left) / eval(right),
         },
         AstNode::NumericLiteral(_primitive_type, value) => {
-            return unsafe { value.int64 };
+            unsafe { value.int64 }
         }
         _ => panic!("Trying to eval node which isn't supported!"),
     }
@@ -46,7 +46,6 @@ fn main() {
         println!("{:?}", token);
     }
 
-    return;
     println!("\n===== AST =====");
     let result_node = Parser::new(tokens).parse_expression(OperatorPrecedence::None);
     print_node(&result_node, 0);

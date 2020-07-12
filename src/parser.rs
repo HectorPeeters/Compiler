@@ -36,7 +36,7 @@ fn get_operator_precedence(token_type: TokenType) -> OperatorPrecedence {
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
         Parser {
-            tokens: tokens,
+            tokens,
             index: 0,
         }
     }
