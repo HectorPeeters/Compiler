@@ -32,7 +32,7 @@ fn eval(node: &AstNode) -> i64 {
             BinaryOperationType::Multiply => return eval(left) * eval(right),
             BinaryOperationType::Divide => return eval(left) / eval(right),
         },
-        AstNode::NumericLiteral(primitive_type, value) => {
+        AstNode::NumericLiteral(_primitive_type, value) => {
             return unsafe { value.int64 };
         }
         _ => panic!("Trying to eval node which isn't supported!"),
@@ -40,7 +40,7 @@ fn eval(node: &AstNode) -> i64 {
 }
 
 fn main() {
-    let tokens = Lexer::new("6 * 5 + 4 * 3 + 2 * 1 + 1 * 2 + 3 * 4 + 5 * 6 + 7 * 8").tokenize();
+    let tokens = Lexer::new("6 * 5 + 4 * 3 + 2 * 1 + 1 / 2 + 3 * 4 - 5 * 6 + 7 * 8").tokenize();
     println!("===== Tokens =====");
     for token in &tokens {
         println!("{:?}", token);
