@@ -8,8 +8,10 @@ pub enum TokenType {
     Star,
     Slash,
     Identifier,
+    EqualSign,
     LeftParen,
     RightParen,
+    SemiColon,
 }
 
 #[derive(Debug)]
@@ -137,6 +139,8 @@ impl<'a> Lexer<'a> {
                 '/' => Some(self.tokenize_single_char(TokenType::Slash)),
                 '(' => Some(self.tokenize_single_char(TokenType::LeftParen)),
                 ')' => Some(self.tokenize_single_char(TokenType::RightParen)),
+                ';' => Some(self.tokenize_single_char(TokenType::SemiColon)),
+                '=' => Some(self.tokenize_single_char(TokenType::EqualSign)),
                 _ => None,
             };
 

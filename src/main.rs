@@ -40,12 +40,13 @@ fn eval(node: &AstNode) -> i64 {
 }
 
 fn main() {
-    let tokens = Lexer::new("6 * 5 + 4 * 3 + 2 * 1 + 1 / 2 + 3 * 4 - 5 * 6 + 7 * 8").tokenize();
+    let tokens = Lexer::new("var x;\nx = 6 * 5 + 4 * 3 + 2 * 1 + 1 / 2 + 3 * 4 - 5 * 6 + 7 * 8;").tokenize();
     println!("===== Tokens =====");
     for token in &tokens {
         println!("{:?}", token);
     }
 
+    return;
     println!("\n===== AST =====");
     let result_node = Parser::new(tokens).parse_expression(OperatorPrecedence::None);
     print_node(&result_node, 0);
