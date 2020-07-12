@@ -5,7 +5,7 @@ use crate::lexer::*;
 pub enum OperatorPrecedence {
     MulDiv = 100,
     AddSubtract = 50,
-    None = 0,
+    Zero = 0,
 }
 
 pub struct Parser {
@@ -50,6 +50,12 @@ impl Parser {
         self.index += 1;
 
         result
+    }
+
+    fn assert_consume(&mut self, token_type: TokenType) -> &Token {
+        let token = self.consume();
+        assert!(token.token_type == token_type);
+        token
     }
 
     fn eof(&self) -> bool {
@@ -98,5 +104,23 @@ impl Parser {
         }
 
         left
+    }
+
+    pub fn parse_variable_declaration(&mut self) -> AstNode {
+        self.assert_consume(TokenType::Var);
+        let name = self.assert_consume(TokenType::Identifier).value.clone();
+        self.assert_consume(TokenType::SemiColon);
+
+        AstNode::VariableDeclaration(name, PrimitiveType::Int64)
+    }
+
+    pub fn parse(&mut self) -> AstNode {
+        let mut children: Vec<AstNode> = vec![];
+
+        while !self.eof() {
+            children.push(self.parse_variable_declaration());
+        }
+
+        AstNode::Block(children)
     }
 }

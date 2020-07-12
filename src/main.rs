@@ -20,6 +20,15 @@ fn print_node(node: &AstNode, indentation: usize) {
                 unsafe { value.int64 }
             );
         }
+        AstNode::Block(children) => {
+            println!("{}Block", " ".repeat(indentation));
+            for child in children {
+                print_node(child, indentation + 1);
+            }
+        }
+        AstNode::VariableDeclaration(name, _primitive_type) => {
+            println!("{}Var {}", " ".repeat(indentation), name);
+        }
         _ => {}
     }
 }
@@ -32,22 +41,20 @@ fn eval(node: &AstNode) -> i64 {
             BinaryOperationType::Multiply => eval(left) * eval(right),
             BinaryOperationType::Divide => eval(left) / eval(right),
         },
-        AstNode::NumericLiteral(_primitive_type, value) => {
-            unsafe { value.int64 }
-        }
+        AstNode::NumericLiteral(_primitive_type, value) => unsafe { value.int64 },
         _ => panic!("Trying to eval node which isn't supported!"),
     }
 }
 
 fn main() {
-    let tokens = Lexer::new("var x;\nx = 6 * 5 + 4 * 3 + 2 * 1 + 1 / 2 + 3 * 4 - 5 * 6 + 7 * 8;").tokenize();
+    let tokens = Lexer::new("var x;").tokenize();
     println!("===== Tokens =====");
     for token in &tokens {
         println!("{:?}", token);
     }
 
     println!("\n===== AST =====");
-    let result_node = Parser::new(tokens).parse_expression(OperatorPrecedence::None);
+    let result_node = Parser::new(tokens).parse();
     print_node(&result_node, 0);
-    println!("\n\n= {}", eval(&result_node));
+    //    println!("\n\n= {}", eval(&result_node));
 }
