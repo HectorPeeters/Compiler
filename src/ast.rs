@@ -41,6 +41,7 @@ pub enum AstNode {
     UnaryOperation(UnaryOperationType, Box<AstNode>),
     NumericLiteral(PrimitiveType, PrimitiveValue),
     VariableDeclaration(String, PrimitiveType),
+    Assignment(String, Box<AstNode>),
     Empty(),
     Block(Vec<AstNode>),
 }

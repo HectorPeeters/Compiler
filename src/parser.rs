@@ -35,10 +35,7 @@ fn get_operator_precedence(token_type: TokenType) -> OperatorPrecedence {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Parser {
-            tokens,
-            index: 0,
-        }
+        Parser { tokens, index: 0 }
     }
 
     fn peek(&self, index: usize) -> &Token {
@@ -76,7 +73,7 @@ impl Parser {
         )
     }
 
-    pub fn parse_expression(&mut self, precedence: OperatorPrecedence) -> AstNode {
+    fn parse_expression(&mut self, precedence: OperatorPrecedence) -> AstNode {
         let mut left = self.parse_unary_expression();
 
         if self.eof() {
@@ -106,7 +103,7 @@ impl Parser {
         left
     }
 
-    pub fn parse_variable_declaration(&mut self) -> AstNode {
+    fn parse_variable_declaration(&mut self) -> AstNode {
         self.assert_consume(TokenType::Var);
         let name = self.assert_consume(TokenType::Identifier).value.clone();
         self.assert_consume(TokenType::SemiColon);
@@ -114,11 +111,27 @@ impl Parser {
         AstNode::VariableDeclaration(name, PrimitiveType::Int64)
     }
 
+    fn parse_assignment(&mut self) -> AstNode {
+        let identifier_name = self.consume().value.clone();
+        self.assert_consume(TokenType::EqualSign);
+
+        let expression = self.parse_expression(OperatorPrecedence::Zero);
+        AstNode::Assignment(identifier_name, Box::new(expression))
+    }
+
     pub fn parse(&mut self) -> AstNode {
         let mut children: Vec<AstNode> = vec![];
 
         while !self.eof() {
-            children.push(self.parse_variable_declaration());
+            let next_token: &Token = self.peek(0);
+
+            let node = match next_token.token_type {
+                TokenType::Var => self.parse_variable_declaration(),
+                TokenType::Identifier => self.parse_assignment(),
+                _ => panic!("Unexpected token: {:?}", next_token),
+            };
+
+            children.push(node);
         }
 
         AstNode::Block(children)

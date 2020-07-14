@@ -24,16 +24,16 @@ impl Scope {
         }
     }
 
-    pub fn get(&self, name: &String) -> Option<&Symbol> {
+    pub fn get(&self, name: &str) -> Option<&Symbol> {
         self.symbols.get(name)
     }
 
-    pub fn add(&mut self, name: &String, symbol_type: SymbolType) {
+    pub fn add(&mut self, name: String, symbol_type: SymbolType) {
         self.symbols.insert(
             name.clone(),
             Symbol {
                 symbol_type,
-                name: name.clone(),
+                name: name,
             },
         );
     }
