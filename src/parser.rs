@@ -85,8 +85,12 @@ impl Parser {
         )
     }
 
-    //TODO: clean up code duplication
+    /// Converts an expression of binary operators into an AST
+    ///
+    /// It uses the pratt parsing algorithm to recursively construct the
+    /// AST with the correct precedence rules.
     fn parse_expression(&mut self, precedence: OperatorPrecedence) -> AstNode {
+        //TODO: clean up code duplication
         let mut left = self.parse_unary_expression();
 
         let mut operator = self.peek(0);

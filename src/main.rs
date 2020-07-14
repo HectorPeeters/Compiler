@@ -10,37 +10,6 @@ mod scope;
 
 use std::fs::File;
 
-fn print_node(node: &AstNode, indentation: usize) {
-    match node {
-        AstNode::BinaryOperation(op_type, left, right) => {
-            println!("{}{:?}", " ".repeat(indentation), op_type);
-            print_node(left, indentation + 2);
-            print_node(right, indentation + 2);
-        }
-        AstNode::NumericLiteral(primitive_type, value) => {
-            println!(
-                "{}{:?}: {:?}",
-                " ".repeat(indentation),
-                primitive_type,
-                unsafe { value.int32 }
-            );
-        }
-        AstNode::Block(children) => {
-            println!("{}Block", " ".repeat(indentation));
-            for child in children {
-                print_node(child, indentation + 1);
-            }
-        }
-        AstNode::VariableDeclaration(name, _primitive_type) => {
-            println!("{}Var {}", " ".repeat(indentation), name);
-        }
-        AstNode::Assignment(name, node) => {
-            println!("{}{} =", " ".repeat(indentation), name);
-            print_node(node, indentation + 1);
-        }
-    }
-}
-
 #[allow(dead_code)]
 fn eval(node: &AstNode) -> i64 {
     match node {
@@ -65,7 +34,7 @@ fn main() {
 
     println!("\n===== AST =====");
     let result_node = Parser::new(tokens).parse();
-    print_node(&result_node, 0);
+    result_node.print(0);
 
     println!("\n===== Code Generation =====");
     let mut generator =

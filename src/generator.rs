@@ -66,7 +66,7 @@ impl<T: Write> CodeGenerator<T> {
         self.scope.add(
             String::from(name),
             SymbolType::Variable,
-            self.scope.last_offset + 4,
+            self.scope.last_offset() + 4,
         );
         println!("{:?}", self.scope);
     }

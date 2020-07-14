@@ -45,3 +45,36 @@ pub enum AstNode {
     //  Empty(),
     Block(Vec<AstNode>),
 }
+
+impl AstNode {
+    pub fn print(&self, indentation: usize) {
+        match self {
+            AstNode::BinaryOperation(op_type, left, right) => {
+                println!("{}{:?}", " ".repeat(indentation), op_type);
+                left.print(indentation + 2);
+                right.print(indentation + 2);
+            }
+            AstNode::NumericLiteral(primitive_type, value) => {
+                println!(
+                    "{}{:?}: {:?}",
+                    " ".repeat(indentation),
+                    primitive_type,
+                    unsafe { value.int32 }
+                );
+            }
+            AstNode::Block(children) => {
+                println!("{}Block", " ".repeat(indentation));
+                for child in children {
+                    child.print(indentation + 1);
+                }
+            }
+            AstNode::VariableDeclaration(name, _primitive_type) => {
+                println!("{}Var {}", " ".repeat(indentation), name);
+            }
+            AstNode::Assignment(name, node) => {
+                println!("{}{} =", " ".repeat(indentation), name);
+                node.print(indentation + 1);
+            }
+        }
+    }
+}

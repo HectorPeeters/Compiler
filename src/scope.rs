@@ -13,11 +13,10 @@ pub struct Symbol {
     pub offset: i32,
 }
 
-//TODO: replace by getter of function
 #[derive(Debug)]
 pub struct Scope {
     symbols: HashMap<String, Symbol>,
-    pub last_offset: i32,
+    last_offset: i32,
 }
 
 impl Scope {
@@ -41,5 +40,9 @@ impl Scope {
                 offset,
             },
         );
+    }
+
+    pub fn last_offset(&self) -> i32 {
+        self.last_offset
     }
 }
