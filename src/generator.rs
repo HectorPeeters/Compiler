@@ -166,7 +166,7 @@ impl<T: Write> CodeGenerator<T> {
     pub fn gen(&mut self, node: &AstNode) {
         self.write(".LC0:");
         self.write("\t.string \"%d\\n\"");
-        //        self.write("\t.text");
+        self.write("\t.text");
         self.write("\t.globl\tmain");
         self.write("\t.type\tmain, @function");
         self.write("main:");

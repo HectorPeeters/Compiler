@@ -45,10 +45,16 @@ impl Parser {
     }
 
     fn peek(&self, index: usize) -> &Token {
+        if self.index + index >= self.tokens.len() {
+            panic!("Reached end of tokenstream while peeking!");
+        }
         &self.tokens[self.index + index]
     }
 
     fn consume(&mut self) -> &Token {
+        if self.eof() {
+            panic!("Reached end of tokenstream while consuming!");
+        }
         let result = &self.tokens[self.index];
         self.index += 1;
 
@@ -83,14 +89,9 @@ impl Parser {
     fn parse_expression(&mut self, precedence: OperatorPrecedence) -> AstNode {
         let mut left = self.parse_unary_expression();
 
-        if self.eof() {
-            return left;
-        }
-
         let mut operator = self.peek(0);
 
         if operator.token_type == TokenType::SemiColon {
-            self.consume();
             return left;
         }
 
@@ -104,14 +105,9 @@ impl Parser {
 
             left = AstNode::BinaryOperation(operator_type, Box::new(left), Box::new(right));
 
-            if self.eof() {
-                break;
-            }
-
             operator = self.peek(0);
 
             if operator.token_type == TokenType::SemiColon {
-                self.consume();
                 return left;
             }
 
@@ -135,6 +131,7 @@ impl Parser {
         self.assert_consume(TokenType::EqualSign);
 
         let expression = self.parse_expression(OperatorPrecedence::Zero);
+        self.consume();
         AstNode::Assignment(identifier_name, Box::new(expression))
     }
 
