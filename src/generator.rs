@@ -46,7 +46,7 @@ impl<T: Write> CodeGenerator<T> {
     }
 
     fn free_register(&mut self, reg: Register) {
-        if self.registers[reg] != true {
+        if !self.registers[reg] {
             panic!("Trying to free a register which is already free!");
         }
         self.registers[reg] = false;
@@ -77,7 +77,7 @@ impl<T: Write> CodeGenerator<T> {
         let offset = self
             .scope
             .get(name)
-            .expect("Unexpected identifier in assignment")
+            .unwrap_or_else(|| panic!("Unexpected identifier in assignment: {}", name))
             .offset;
 
         self.write(format!("\tmov\t{}, -{}(%rbp)", REGISTERS[reg], offset).as_str());
@@ -93,8 +93,7 @@ impl<T: Write> CodeGenerator<T> {
                     BinaryOperationType::Add => {
                         self.write(
                             format!("\tadd\t{}, {}", REGISTERS[right_reg], REGISTERS[left_reg])
-                                .as_str()
-
+                                .as_str(),
                         );
                         self.free_register(right_reg);
 

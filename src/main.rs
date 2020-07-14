@@ -41,6 +41,7 @@ fn print_node(node: &AstNode, indentation: usize) {
     }
 }
 
+#[allow(dead_code)]
 fn eval(node: &AstNode) -> i64 {
     match node {
         AstNode::BinaryOperation(op_type, left, right) => match op_type {
