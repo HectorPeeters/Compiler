@@ -72,7 +72,7 @@ impl Parser {
         }
 
         AstNode::NumericLiteral(
-            PrimitiveType::Int64,
+            PrimitiveType::Int32,
             PrimitiveValue {
                 int64: self.consume().value.parse::<i64>().unwrap(),
             },
