@@ -33,7 +33,7 @@ impl Scope {
             name.clone(),
             Symbol {
                 symbol_type,
-                name: name,
+                name,
             },
         );
     }

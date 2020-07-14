@@ -9,7 +9,6 @@ use generator::*;
 mod scope;
 
 use std::fs::File;
-use std::io;
 
 fn print_node(node: &AstNode, indentation: usize) {
     match node {
@@ -35,6 +34,10 @@ fn print_node(node: &AstNode, indentation: usize) {
         AstNode::VariableDeclaration(name, _primitive_type) => {
             println!("{}Var {}", " ".repeat(indentation), name);
         }
+        AstNode::Assignment(name, node) => {
+            println!("{}{} =", " ".repeat(indentation), name);
+            print_node(node, indentation + 1);
+        }
         _ => {}
     }
 }
@@ -53,7 +56,7 @@ fn eval(node: &AstNode) -> i64 {
 }
 
 fn main() {
-    let tokens = Lexer::new("var x;var y;").tokenize();
+    let tokens = Lexer::new("var x;\nx = 12 - 34 * 2;").tokenize();
     println!("===== Tokens =====");
     for token in &tokens {
         println!("{:?}", token);

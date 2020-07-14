@@ -19,7 +19,10 @@ fn token_type_to_operator(token_type: TokenType) -> BinaryOperationType {
         TokenType::Minus => BinaryOperationType::Subtract,
         TokenType::Star => BinaryOperationType::Multiply,
         TokenType::Slash => BinaryOperationType::Divide,
-        _ => panic!("Trying to convert a non operator token type to a binary operator type"),
+        _ => panic!(
+            "Trying to convert a non operator token type to a binary operator type, {:?}",
+            token_type
+        ),
     }
 }
 
@@ -29,7 +32,10 @@ fn get_operator_precedence(token_type: TokenType) -> OperatorPrecedence {
         TokenType::Minus => OperatorPrecedence::AddSubtract,
         TokenType::Star => OperatorPrecedence::MulDiv,
         TokenType::Slash => OperatorPrecedence::MulDiv,
-        _ => panic!("Trying to convert a non operator token type to an operator precedence"),
+        _ => panic!(
+            "Trying to convert a non operator token type to an operator precedence, {:?}",
+            token_type
+        ),
     }
 }
 
@@ -73,6 +79,7 @@ impl Parser {
         )
     }
 
+    //TODO: clean up code duplication
     fn parse_expression(&mut self, precedence: OperatorPrecedence) -> AstNode {
         let mut left = self.parse_unary_expression();
 
@@ -81,6 +88,12 @@ impl Parser {
         }
 
         let mut operator = self.peek(0);
+
+        if operator.token_type == TokenType::SemiColon {
+            self.consume();
+            return left;
+        }
+
         let mut operator_type = token_type_to_operator(operator.token_type);
         let mut current_precedence = get_operator_precedence(operator.token_type);
 
@@ -96,6 +109,12 @@ impl Parser {
             }
 
             operator = self.peek(0);
+
+            if operator.token_type == TokenType::SemiColon {
+                self.consume();
+                return left;
+            }
+
             operator_type = token_type_to_operator(operator.token_type);
             current_precedence = get_operator_precedence(operator.token_type)
         }
