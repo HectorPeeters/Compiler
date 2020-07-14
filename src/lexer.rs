@@ -17,7 +17,7 @@ pub enum TokenType {
 
 #[derive(Debug)]
 pub struct Token {
-    pub token_type: TokenType,
+        pub token_type: TokenType,
     pub value: String,
     pub col: usize,
     pub line: usize,
@@ -125,12 +125,13 @@ impl<'a> Lexer<'a> {
             "var" => Some(TokenType::Var),
             _ => None,
         }
-    }  
+    }
 
     fn tokenize_possible_keyword(&mut self) -> Token {
         let value = self.consume_while(is_alphabetic);
 
-        let token_type = Self::keyword_to_tokentype(value.as_str()).unwrap_or(TokenType::Identifier);
+        let token_type =
+            Self::keyword_to_tokentype(value.as_str()).unwrap_or(TokenType::Identifier);
 
         Token {
             line: self.current_line,

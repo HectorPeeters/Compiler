@@ -4,6 +4,12 @@ mod lexer;
 use lexer::*;
 mod parser;
 use parser::*;
+mod generator;
+use generator::*;
+mod scope;
+
+use std::fs::File;
+use std::io;
 
 fn print_node(node: &AstNode, indentation: usize) {
     match node {
@@ -47,7 +53,7 @@ fn eval(node: &AstNode) -> i64 {
 }
 
 fn main() {
-    let tokens = Lexer::new("var x;").tokenize();
+    let tokens = Lexer::new("var x;var y;").tokenize();
     println!("===== Tokens =====");
     for token in &tokens {
         println!("{:?}", token);
@@ -56,5 +62,9 @@ fn main() {
     println!("\n===== AST =====");
     let result_node = Parser::new(tokens).parse();
     print_node(&result_node, 0);
-    //    println!("\n\n= {}", eval(&result_node));
+
+    println!("\n===== Code Generation =====");
+    let mut generator =
+        CodeGenerator::new(File::create("output.s").expect("Failed to open output file"));
+    generator.gen(&result_node);
 }
