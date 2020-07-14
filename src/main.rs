@@ -22,7 +22,7 @@ fn print_node(node: &AstNode, indentation: usize) {
                 "{}{:?}: {:?}",
                 " ".repeat(indentation),
                 primitive_type,
-                unsafe { value.int64 }
+                unsafe { value.int32 }
             );
         }
         AstNode::Block(children) => {
@@ -55,7 +55,8 @@ fn eval(node: &AstNode) -> i64 {
 }
 
 fn main() {
-    let tokens = Lexer::new("var x;\nx = 12;").tokenize();
+    let tokens = Lexer::new("var x;\nx = 5 * 4 - 8 / 4 + 12;").tokenize();
+
     println!("===== Tokens =====");
     for token in &tokens {
         println!("{:?}", token);

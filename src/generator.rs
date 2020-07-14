@@ -9,7 +9,7 @@ pub struct CodeGenerator<T: Write> {
     registers: [bool; 7],
 }
 
-const REGISTERS: &[&str] = &["%r10", "%r11", "%r12", "%r13", "%r14", "%r15"];
+const REGISTERS: &[&str] = &["%r10d", "%r11d", "%r12d", "%r13d", "%r14d", "%r15d"];
 
 type Register = usize;
 
@@ -45,7 +45,12 @@ impl<T: Write> CodeGenerator<T> {
         panic!("Out of registers!");
     }
 
-    fn free_register(&mut self) {}
+    fn free_register(&mut self, reg: Register) {
+        if self.registers[reg] != true {
+            panic!("Trying to free a register which is already free!");
+        }
+        self.registers[reg] = false;
+    }
 
     fn gen_block(&mut self, children: &[AstNode]) {
         for child in children {
@@ -80,6 +85,50 @@ impl<T: Write> CodeGenerator<T> {
 
     fn gen_expression(&mut self, expression: &AstNode) -> Register {
         match expression {
+            AstNode::BinaryOperation(operation_type, left, right) => {
+                let left_reg = self.gen_expression(left);
+                let right_reg = self.gen_expression(right);
+
+                match operation_type {
+                    BinaryOperationType::Add => {
+                        self.write(
+                            format!("\tadd\t{}, {}", REGISTERS[right_reg], REGISTERS[left_reg])
+                                .as_str()
+
+                        );
+                        self.free_register(right_reg);
+
+                        left_reg
+                    }
+                    BinaryOperationType::Subtract => {
+                        self.write(
+                            format!("\tsub\t{}, {}", REGISTERS[right_reg], REGISTERS[left_reg])
+                                .as_str(),
+                        );
+                        self.free_register(right_reg);
+
+                        left_reg
+                    }
+                    BinaryOperationType::Multiply => {
+                        self.write(
+                            format!("\timul\t{}, {}", REGISTERS[right_reg], REGISTERS[left_reg])
+                                .as_str(),
+                        );
+                        self.free_register(right_reg);
+
+                        left_reg
+                    }
+                    BinaryOperationType::Divide => {
+                        self.write(format!("\tmov\t{}, %eax", REGISTERS[left_reg]).as_str());
+                        self.write("\tcltd");
+                        self.write(format!("\tidiv\t{}", REGISTERS[right_reg]).as_str());
+                        self.write(format!("\tmov\t%eax, {}", REGISTERS[left_reg]).as_str());
+                        self.free_register(right_reg);
+
+                        left_reg
+                    }
+                }
+            }
             AstNode::NumericLiteral(primitive_type, value) => match primitive_type {
                 PrimitiveType::Int32 => {
                     let register = self.get_register();
