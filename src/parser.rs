@@ -90,12 +90,13 @@ impl Parser {
     /// It uses the pratt parsing algorithm to recursively construct the
     /// AST with the correct precedence rules.
     fn parse_expression(&mut self, precedence: OperatorPrecedence) -> AstNode {
-        //TODO: clean up code duplication
+        let break_condition = |token: &Token| token.token_type == TokenType::SemiColon;
+
         let mut left = self.parse_unary_expression();
 
         let mut operator = self.peek(0);
 
-        if operator.token_type == TokenType::SemiColon {
+        if break_condition(operator) {
             return left;
         }
 
@@ -111,7 +112,7 @@ impl Parser {
 
             operator = self.peek(0);
 
-            if operator.token_type == TokenType::SemiColon {
+            if break_condition(operator) {
                 return left;
             }
 
