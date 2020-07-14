@@ -3,7 +3,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub enum SymbolType {
     Variable,
-    Function,
+//    Function,
 }
 
 #[derive(Debug)]

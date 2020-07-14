@@ -38,7 +38,6 @@ fn print_node(node: &AstNode, indentation: usize) {
             println!("{}{} =", " ".repeat(indentation), name);
             print_node(node, indentation + 1);
         }
-        _ => {}
     }
 }
 

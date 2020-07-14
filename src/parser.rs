@@ -74,7 +74,7 @@ impl Parser {
         AstNode::NumericLiteral(
             PrimitiveType::Int32,
             PrimitiveValue {
-                int64: self.consume().value.parse::<i64>().unwrap(),
+                int32: self.consume().value.parse::<i32>().unwrap(),
             },
         )
     }
@@ -127,7 +127,7 @@ impl Parser {
         let name = self.assert_consume(TokenType::Identifier).value.clone();
         self.assert_consume(TokenType::SemiColon);
 
-        AstNode::VariableDeclaration(name, PrimitiveType::Int64)
+        AstNode::VariableDeclaration(name, PrimitiveType::Int32)
     }
 
     fn parse_assignment(&mut self) -> AstNode {

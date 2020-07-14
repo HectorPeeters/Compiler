@@ -6,19 +6,19 @@ pub enum BinaryOperationType {
     Divide,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum UnaryOperationType {
-    Negate,
-}
+//#[derive(Debug, Clone, Copy)]
+//pub enum UnaryOperationType {
+//    Negate,
+//}
 
 #[derive(Debug, Clone, Copy)]
 pub enum PrimitiveType {
-    Int8,
-    Int16,
+//  Int8,
+//  Int16,
     Int32,
-    Int64,
-    F32,
-    F64,
+//  Int64,
+//  F32,
+//  F64,
 }
 
 pub union PrimitiveValue {
@@ -38,10 +38,10 @@ pub union PrimitiveValue {
 
 pub enum AstNode {
     BinaryOperation(BinaryOperationType, Box<AstNode>, Box<AstNode>),
-    UnaryOperation(UnaryOperationType, Box<AstNode>),
+//  UnaryOperation(UnaryOperationType, Box<AstNode>),
     NumericLiteral(PrimitiveType, PrimitiveValue),
     VariableDeclaration(String, PrimitiveType),
     Assignment(String, Box<AstNode>),
-    Empty(),
+//  Empty(),
     Block(Vec<AstNode>),
 }

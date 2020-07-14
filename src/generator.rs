@@ -9,7 +9,7 @@ pub struct CodeGenerator<T: Write> {
     registers: [bool; 7],
 }
 
-const REGISTERS: &'static [&'static str] = &["%r10", "%r11", "%r12", "%r13", "%r14", "%r15"];
+const REGISTERS: &[&str] = &["%r10", "%r11", "%r12", "%r13", "%r14", "%r15"];
 
 type Register = usize;
 
@@ -53,7 +53,7 @@ impl<T: Write> CodeGenerator<T> {
         }
     }
 
-    fn gen_declaration(&mut self, name: &str, primitive_type: &PrimitiveType) {
+    fn gen_declaration(&mut self, name: &str, _primitive_type: &PrimitiveType) {
         if self.scope.get(name).is_some() {
             panic!("Redeclaration of variable {}", name);
         }
@@ -69,12 +69,13 @@ impl<T: Write> CodeGenerator<T> {
     fn gen_assignment(&mut self, name: &str, expression: &AstNode) {
         let reg = self.gen_expression(expression);
 
-        let symbol = self
+        let offset = self
             .scope
             .get(name)
-            .expect("Unexpected identifier in assignment");
+            .expect("Unexpected identifier in assignment")
+            .offset;
 
-        self.write(format!("\tmov\t{}, -{}(%rbp)", REGISTERS[reg], symbol.offset).as_str());
+        self.write(format!("\tmov\t{}, -{}(%rbp)", REGISTERS[reg], offset).as_str());
     }
 
     fn gen_expression(&mut self, expression: &AstNode) -> Register {
@@ -92,12 +93,12 @@ impl<T: Write> CodeGenerator<T> {
                         .as_str(),
                     );
 
-                    return register;
+                    register
                 }
-                _ => panic!(
-                    "gen_expression does not support {:?} NumericLiteral",
-                    primitive_type
-                ),
+            //  _ => panic!(
+            //      "gen_expression does not support {:?} NumericLiteral",
+            //      primitive_type
+            //  ),
             },
             _ => panic!("unsupported astnode in gen_expression"),
         }
@@ -126,8 +127,8 @@ impl<T: Write> CodeGenerator<T> {
 
         self.gen_node(node);
 
-        let x = self.scope.get("x").unwrap();
-        self.write(format!("\tmov\t-{}(%rbp), %eax", x.offset).as_str());
+        let offset = self.scope.get("x").unwrap().offset;
+        self.write(format!("\tmov\t-{}(%rbp), %eax", offset).as_str());
         self.write("\tmov\t%eax, %esi");
         self.write("\tleaq\t.LC0(%rip), %rdi");
         self.write("\tmov\t$0, %eax");
