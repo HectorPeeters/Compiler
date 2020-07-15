@@ -11,13 +11,15 @@ pub enum TokenType {
     EqualSign,
     LeftParen,
     RightParen,
+    LeftBrace,
+    RightBrace,
     SemiColon,
     Var,
 }
 
 #[derive(Debug)]
 pub struct Token {
-        pub token_type: TokenType,
+    pub token_type: TokenType,
     pub value: String,
     pub col: usize,
     pub line: usize,
@@ -158,6 +160,8 @@ impl<'a> Lexer<'a> {
                 '/' => Some(self.tokenize_single_char(TokenType::Slash)),
                 '(' => Some(self.tokenize_single_char(TokenType::LeftParen)),
                 ')' => Some(self.tokenize_single_char(TokenType::RightParen)),
+                '{' => Some(self.tokenize_single_char(TokenType::LeftBrace)),
+                '}' => Some(self.tokenize_single_char(TokenType::RightBrace)),
                 ';' => Some(self.tokenize_single_char(TokenType::SemiColon)),
                 '=' => Some(self.tokenize_single_char(TokenType::EqualSign)),
                 _ => None,

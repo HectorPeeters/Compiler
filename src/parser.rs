@@ -140,21 +140,29 @@ impl Parser {
         AstNode::Assignment(identifier_name, Box::new(expression))
     }
 
-    pub fn parse(&mut self) -> AstNode {
+    fn parse_block(&mut self) -> AstNode {
         let mut children: Vec<AstNode> = vec![];
 
-        while !self.eof() {
-            let next_token: &Token = self.peek(0);
+        self.consume();
 
-            let node = match next_token.token_type {
-                TokenType::Var => self.parse_variable_declaration(),
-                TokenType::Identifier => self.parse_assignment(),
-                _ => panic!("Unexpected token: {:?}", next_token),
-            };
-
+        while self.peek(0).token_type != TokenType::RightBrace {
+            let node = self.parse();
             children.push(node);
         }
 
+        self.consume();
+
         AstNode::Block(children)
+    }
+
+    pub fn parse(&mut self) -> AstNode {
+        let next_token: &Token = self.peek(0);
+        let node = match next_token.token_type {
+            TokenType::LeftBrace => self.parse_block(),
+            TokenType::Var => self.parse_variable_declaration(),
+            TokenType::Identifier => self.parse_assignment(),
+            _ => panic!("Unexpected token: {:?}", next_token),
+        };
+        node
     }
 }

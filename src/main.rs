@@ -25,7 +25,7 @@ fn eval(node: &AstNode) -> i64 {
 }
 
 fn main() {
-    let tokens = Lexer::new("var x;\nx = 12 - 2;\nx = 12 + 2;").tokenize();
+    let tokens = Lexer::new("{var x;\nx = 12 - 2;\nx = 12 + 2;}").tokenize();
 
     println!("===== Tokens =====");
     for token in &tokens {
