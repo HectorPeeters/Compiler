@@ -3,18 +3,29 @@ use unicode_segmentation::UnicodeSegmentation;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     IntLiteral,
+
     Plus,
     Minus,
     Star,
     Slash,
+
     Identifier,
     EqualSign,
+
     LeftParen,
     RightParen,
     LeftBrace,
     RightBrace,
+
     SemiColon,
     Var,
+
+    DoubleEqualSign,
+    NotEqualSign,
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
 }
 
 #[derive(Debug)]
@@ -143,6 +154,28 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn tokenize_possible_multichar(
+        &mut self,
+        single_type: TokenType,
+        multiple_type: TokenType,
+        next_char: &str,
+    ) -> Token {
+        let mut value = String::from(self.consume());
+        let mut token_type = single_type;
+
+        if self.peek(0) == next_char {
+            value.push_str(self.consume());
+            token_type = multiple_type;
+        }
+
+        Token {
+            line: self.current_line,
+            col: self.current_col - value.len(),
+            token_type,
+            value,
+        }
+    }
+
     pub fn tokenize(&mut self) -> Vec<Token> {
         let mut result: Vec<Token> = Vec::new();
 
@@ -163,7 +196,21 @@ impl<'a> Lexer<'a> {
                 '{' => Some(self.tokenize_single_char(TokenType::LeftBrace)),
                 '}' => Some(self.tokenize_single_char(TokenType::RightBrace)),
                 ';' => Some(self.tokenize_single_char(TokenType::SemiColon)),
-                '=' => Some(self.tokenize_single_char(TokenType::EqualSign)),
+                '=' => Some(self.tokenize_possible_multichar(
+                    TokenType::EqualSign,
+                    TokenType::DoubleEqualSign,
+                    "=",
+                )),
+                '<' => Some(self.tokenize_possible_multichar(
+                    TokenType::LessThan,
+                    TokenType::LessThanOrEqual,
+                    "=",
+                )),
+                '>' => Some(self.tokenize_possible_multichar(
+                    TokenType::GreaterThan,
+                    TokenType::GreaterThanOrEqual,
+                    "=",
+                )),
                 _ => None,
             };
 
