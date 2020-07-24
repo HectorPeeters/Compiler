@@ -4,7 +4,7 @@ use crate::types::*;
 
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub enum OperatorPrecedence {
-    GreaterLessThan = 200,
+    //GreaterLessThan = 200,
     EqualsNotEquals = 150,
     MulDiv = 100,
     AddSubtract = 50,

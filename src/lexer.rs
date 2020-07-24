@@ -20,10 +20,11 @@ pub enum TokenType {
     SemiColon,
     Colon,
     Var,
+    If,
     Type,
 
     DoubleEqualSign,
-    NotEqualSign,
+    //NotEqualSign,
     LessThan,
     GreaterThan,
     LessThanOrEqual,
@@ -137,6 +138,7 @@ impl<'a> Lexer<'a> {
 
     fn keyword_to_tokentype(keyword: &str) -> Option<TokenType> {
         match keyword {
+            "if" => Some(TokenType::If),
             "var" => Some(TokenType::Var),
             "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "bool" => Some(TokenType::Type),
             _ => None,

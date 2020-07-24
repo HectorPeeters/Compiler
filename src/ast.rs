@@ -25,7 +25,7 @@ pub enum AstNode {
     NumericLiteral(PrimitiveType, PrimitiveValue),
     VariableDeclaration(String, PrimitiveType),
     Assignment(String, Box<AstNode>),
-    Widen(PrimitiveType, Box<AstNode>),
+    //Widen(PrimitiveType, Box<AstNode>),
     //  Empty(),
     Block(Vec<AstNode>),
 }
@@ -59,10 +59,10 @@ impl AstNode {
                 println!("{}{} =", " ".repeat(indentation), name);
                 node.print(indentation + 1);
             }
-            AstNode::Widen(primitive_type, node) => {
-                println!("{}Widen {:?}", " ".repeat(indentation), primitive_type);
-                node.print(indentation + 1);
-            }
+            //AstNode::Widen(primitive_type, node) => {
+            //    println!("{}Widen {:?}", " ".repeat(indentation), primitive_type);
+            //    node.print(indentation + 1);
+            //}
         }
     }
 
