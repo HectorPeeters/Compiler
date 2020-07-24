@@ -18,7 +18,9 @@ pub enum TokenType {
     RightBrace,
 
     SemiColon,
+    Colon,
     Var,
+    Type,
 
     DoubleEqualSign,
     NotEqualSign,
@@ -136,12 +138,13 @@ impl<'a> Lexer<'a> {
     fn keyword_to_tokentype(keyword: &str) -> Option<TokenType> {
         match keyword {
             "var" => Some(TokenType::Var),
+            "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "bool" => Some(TokenType::Type),
             _ => None,
         }
     }
 
     fn tokenize_possible_keyword(&mut self) -> Token {
-        let value = self.consume_while(is_alphabetic);
+        let value = self.consume_while(|c| is_alphabetic(c) || is_numeric(c));
 
         let token_type =
             Self::keyword_to_tokentype(value.as_str()).unwrap_or(TokenType::Identifier);
@@ -196,6 +199,7 @@ impl<'a> Lexer<'a> {
                 '{' => Some(self.tokenize_single_char(TokenType::LeftBrace)),
                 '}' => Some(self.tokenize_single_char(TokenType::RightBrace)),
                 ';' => Some(self.tokenize_single_char(TokenType::SemiColon)),
+                ':' => Some(self.tokenize_single_char(TokenType::Colon)),
                 '=' => Some(self.tokenize_possible_multichar(
                     TokenType::EqualSign,
                     TokenType::DoubleEqualSign,

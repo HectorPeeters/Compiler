@@ -1,8 +1,11 @@
 use crate::ast::*;
 use crate::lexer::*;
+use crate::types::*;
 
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub enum OperatorPrecedence {
+    GreaterLessThan = 200,
+    EqualsNotEquals = 150,
     MulDiv = 100,
     AddSubtract = 50,
     Zero = 0,
@@ -19,6 +22,7 @@ fn token_type_to_operator(token_type: TokenType) -> BinaryOperationType {
         TokenType::Minus => BinaryOperationType::Subtract,
         TokenType::Star => BinaryOperationType::Multiply,
         TokenType::Slash => BinaryOperationType::Divide,
+        TokenType::DoubleEqualSign => BinaryOperationType::Equals,
         _ => panic!(
             "Trying to convert a non operator token type to a binary operator type, {:?}",
             token_type
@@ -26,15 +30,14 @@ fn token_type_to_operator(token_type: TokenType) -> BinaryOperationType {
     }
 }
 
-fn get_operator_precedence(token_type: TokenType) -> OperatorPrecedence {
-    match token_type {
-        TokenType::Plus => OperatorPrecedence::AddSubtract,
-        TokenType::Minus => OperatorPrecedence::AddSubtract,
-        TokenType::Star => OperatorPrecedence::MulDiv,
-        TokenType::Slash => OperatorPrecedence::MulDiv,
+fn get_operator_precedence(operation_type: BinaryOperationType) -> OperatorPrecedence {
+    match operation_type {
+        BinaryOperationType::Add | BinaryOperationType::Subtract => OperatorPrecedence::AddSubtract,
+        BinaryOperationType::Multiply | BinaryOperationType::Divide => OperatorPrecedence::MulDiv,
+        BinaryOperationType::Equals => OperatorPrecedence::EqualsNotEquals,
         _ => panic!(
             "Trying to convert a non operator token type to an operator precedence, {:?}",
-            token_type
+            operation_type
         ),
     }
 }
@@ -77,10 +80,21 @@ impl Parser {
             panic!("parse_unary_expression expects IntLiteral token type");
         }
 
+        let value = self.consume().value.parse::<i64>().unwrap();
+        let mut primitive_type = PrimitiveType::UInt8;
+
+        if value > 2i64.pow(32) {
+            primitive_type = PrimitiveType::UInt64;
+        } else if value > 2i64.pow(16) {
+            primitive_type = PrimitiveType::UInt32;
+        } else if value > 2i64.pow(8) {
+            primitive_type = PrimitiveType::UInt16;
+        }
+
         AstNode::NumericLiteral(
-            PrimitiveType::Int32,
+            primitive_type,
             PrimitiveValue {
-                int32: self.consume().value.parse::<i32>().unwrap(),
+                int64: value,
             },
         )
     }
@@ -101,7 +115,7 @@ impl Parser {
         }
 
         let mut operator_type = token_type_to_operator(operator.token_type);
-        let mut current_precedence = get_operator_precedence(operator.token_type);
+        let mut current_precedence = get_operator_precedence(operator_type);
 
         while current_precedence > precedence {
             self.consume();
@@ -117,18 +131,28 @@ impl Parser {
             }
 
             operator_type = token_type_to_operator(operator.token_type);
-            current_precedence = get_operator_precedence(operator.token_type)
+            current_precedence = get_operator_precedence(operator_type)
         }
 
         left
     }
 
+    fn parse_variable_type(&mut self) -> PrimitiveType {
+        let type_token = self.assert_consume(TokenType::Type);
+        type_token
+            .value
+            .parse::<PrimitiveType>()
+            .unwrap_or_else(|_| panic!("Unknown primitive type: {}", type_token.value))
+    }
+
     fn parse_variable_declaration(&mut self) -> AstNode {
         self.assert_consume(TokenType::Var);
         let name = self.assert_consume(TokenType::Identifier).value.clone();
+        self.assert_consume(TokenType::Colon);
+        let primitive_type = self.parse_variable_type();
         self.assert_consume(TokenType::SemiColon);
 
-        AstNode::VariableDeclaration(name, PrimitiveType::Int32)
+        AstNode::VariableDeclaration(name, primitive_type)
     }
 
     fn parse_assignment(&mut self) -> AstNode {
@@ -157,12 +181,11 @@ impl Parser {
 
     pub fn parse(&mut self) -> AstNode {
         let next_token: &Token = self.peek(0);
-        let node = match next_token.token_type {
+        match next_token.token_type {
             TokenType::LeftBrace => self.parse_block(),
             TokenType::Var => self.parse_variable_declaration(),
             TokenType::Identifier => self.parse_assignment(),
             _ => panic!("Unexpected token: {:?}", next_token),
-        };
-        node
+        }
     }
 }

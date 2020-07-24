@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::types::*;
 
 #[derive(Debug)]
 pub enum SymbolType {
@@ -9,6 +10,7 @@ pub enum SymbolType {
 #[derive(Debug)]
 pub struct Symbol {
     symbol_type: SymbolType,
+    pub primitive_type: PrimitiveType,
     name: String,
     pub offset: i32,
 }
@@ -31,11 +33,12 @@ impl Scope {
         self.symbols.get(name)
     }
 
-    pub fn add(&mut self, name: String, symbol_type: SymbolType, offset: i32) {
+    pub fn add(&mut self, name: String, symbol_type: SymbolType, primitive_type: PrimitiveType, offset: i32) {
         self.symbols.insert(
             name.clone(),
             Symbol {
                 symbol_type,
+                primitive_type,
                 name,
                 offset,
             },

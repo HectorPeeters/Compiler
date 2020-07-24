@@ -7,6 +7,7 @@ use parser::*;
 mod generator;
 use generator::*;
 mod scope;
+mod types;
 
 use std::fs::File;
 
@@ -18,6 +19,7 @@ fn eval(node: &AstNode) -> i64 {
             BinaryOperationType::Subtract => eval(left) - eval(right),
             BinaryOperationType::Multiply => eval(left) * eval(right),
             BinaryOperationType::Divide => eval(left) / eval(right),
+            _ => panic!("Trying to eval binary operation which isn't supported!"),
         },
         AstNode::NumericLiteral(_primitive_type, value) => unsafe { value.int64 },
         _ => panic!("Trying to eval node which isn't supported!"),
@@ -25,7 +27,7 @@ fn eval(node: &AstNode) -> i64 {
 }
 
 fn main() {
-    let tokens = Lexer::new("{var x;\nx = 12 - 2;\nx = 12 + 2;}").tokenize();
+    let tokens = Lexer::new("{var x: bool;\nx = 5 == 5;}").tokenize();
 
     println!("===== Tokens =====");
     for token in &tokens {
