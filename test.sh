@@ -14,3 +14,5 @@ do
         echo ""
     fi
 done
+
+rm output.s a.out
