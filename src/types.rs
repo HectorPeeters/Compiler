@@ -32,22 +32,38 @@ impl PrimitiveType {
 
     pub fn is_signed(&self) -> bool {
         match self {
-            PrimitiveType::Int8 |
-            PrimitiveType::Int16 |
-            PrimitiveType::Int32 |
-            PrimitiveType::Int64 => true,
+            PrimitiveType::Int8
+            | PrimitiveType::Int16
+            | PrimitiveType::Int32
+            | PrimitiveType::Int64 => true,
             _ => false,
         }
     }
 
     pub fn is_unsigned(&self) -> bool {
         match self {
-            PrimitiveType::UInt8 |
-            PrimitiveType::UInt16 |
-            PrimitiveType::UInt32 |
-            PrimitiveType::UInt64 => true,
+            PrimitiveType::UInt8
+            | PrimitiveType::UInt16
+            | PrimitiveType::UInt32
+            | PrimitiveType::UInt64 => true,
             _ => false,
         }
+    }
+
+    pub fn is_compatible_with(&self, dest_type: &PrimitiveType) -> bool {
+        if self == dest_type {
+            return true;
+        }
+
+        if *self == PrimitiveType::Bool && *dest_type != PrimitiveType::Bool {
+            return false;
+        }
+
+        if self.is_signed() && dest_type.is_unsigned() {
+            return false;
+        }
+
+        dest_type.get_size() > self.get_size()
     }
 }
 
@@ -83,20 +99,4 @@ pub union PrimitiveValue {
 
     pub float32: f32,
     pub float64: f64,
-}
-
-pub fn is_type_compatible(src_type: PrimitiveType, dst_type: PrimitiveType) -> bool {
-    if src_type == dst_type {
-        return true;
-    }
-
-    if src_type == PrimitiveType::Bool && dst_type != PrimitiveType::Bool {
-        return false;
-    }
-    
-    if src_type.is_signed() && dst_type.is_unsigned() {
-        return false;
-    }
-
-    dst_type.get_size() > src_type.get_size()
 }

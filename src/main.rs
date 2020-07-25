@@ -1,5 +1,4 @@
 mod ast;
-use ast::*;
 mod lexer;
 use lexer::*;
 mod parser;
@@ -11,21 +10,6 @@ mod types;
 
 use clap::{App, Arg};
 use std::fs::File;
-
-#[allow(dead_code)]
-fn eval(node: &AstNode) -> i64 {
-    match node {
-        AstNode::BinaryOperation(op_type, left, right) => match op_type {
-            BinaryOperationType::Add => eval(left) + eval(right),
-            BinaryOperationType::Subtract => eval(left) - eval(right),
-            BinaryOperationType::Multiply => eval(left) * eval(right),
-            BinaryOperationType::Divide => eval(left) / eval(right),
-            _ => panic!("Trying to eval binary operation which isn't supported!"),
-        },
-        AstNode::NumericLiteral(_primitive_type, value) => unsafe { value.int64 },
-        _ => panic!("Trying to eval node which isn't supported!"),
-    }
-}
 
 fn main() {
     let matches = App::new("Compiler")

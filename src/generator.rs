@@ -86,7 +86,7 @@ impl<T: Write> CodeGenerator<T> {
         let expression_type = expression.get_primitive_type();
 
         println!("Checking compatibility of {:?} = {:?}", expression_type, scope_var.primitive_type);
-        if !is_type_compatible(expression_type, scope_var.primitive_type) {
+        if !expression_type.is_compatible_with(&scope_var.primitive_type) {
             panic!("Incompatible types in assignment, {:?} = {:?}", expression_type, scope_var.primitive_type);
         }
 
