@@ -1,9 +1,9 @@
 {
-    var x: i32;
+    var x: u32;
     x = 12;
     print(x);
 
-    var y: i32;
+    var y: u32;
     y = 13;
     printsum(x, y);
 }

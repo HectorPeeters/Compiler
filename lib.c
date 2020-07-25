@@ -1,9 +1,10 @@
 #include "stdio.h"
+#include "stdint.h"
 
-void print(unsigned int x) {
+void print(uint32_t x) {
     printf("%d\n", x);
 }
 
-void printsum(unsigned int x, unsigned int y) {
+void printsum(uint32_t x, uint32_t y) {
     printf("%d\n", x + y);
 }

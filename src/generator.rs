@@ -7,16 +7,35 @@ use std::io::Write;
 pub struct CodeGenerator<T: Write> {
     output: Box<T>,
     scope: Scope,
-    registers: [Option<Register>; 7],
+    registers: [Option<Register>; 4],
 }
 
-const QREGISTERS: &[&str] = &["%r10", "%r11", "%r12", "%r13", "%r14", "%r15"];
-const DREGISTERS: &[&str] = &["%r10d", "%r11d", "%r12d", "%r13d", "%r14d", "%r15d"];
-const WREGISTERS: &[&str] = &["%r10w", "%r11w", "%r12w", "%r13w", "%r14w", "%r15w"];
-const BREGISTERS: &[&str] = &["%r10b", "%r11b", "%r12b", "%r13b", "%r14b", "%r15b"];
+const REGISTERS: &[&[&str]] = &[
+    &["%r8b", "%r9b", "%r10b", "%r11b"],
+    &["%r8w", "%r9w", "%r10w", "%r11w"],
+    &["%r8d", "%r9d", "%r10d", "%r11d"],
+    &["%r8", "%r9", "%r10", "%r11"],
+];
+
+const PARAM_REGISTERS: &[&[&str]] = &[
+    &["%dil", "%sil"],
+    &["%di", "%si"],
+    &["%edi", "%esi"],
+    &["%rdi", "%rsi"],
+];
+
+const EAX: &[&str] = &["%al", "%ax", "%eax", "%rax"];
+
+const MOV_INSTR: &[&str] = &["movb", "movw", "movl", "movq"];
+const ADD_INSTR: &[&str] = &["addb", "addw", "addl", "addq"];
+const SUB_INSTR: &[&str] = &["subb", "subw", "subl", "subq"];
+const MUL_INSTR: &[&str] = &["mulb", "mulw", "mull", "mulq"];
+const DIV_INSTR: &[&str] = &["divb", "divw", "divl", "divq"];
+const CMP_INSTR: &[&str] = &["cmpb", "cmpw", "cmpl", "cmpq"];
+const AND_INSTR: &[&str] = &["andb", "andw", "andl", "andq"];
 
 #[derive(Debug, Copy, Clone)]
-struct Register{
+struct Register {
     pub size: i32,
     pub index: usize,
 }
@@ -29,7 +48,17 @@ impl<T: Write> CodeGenerator<T> {
         CodeGenerator {
             output: Box::new(output),
             scope: Scope::new(),
-            registers: [None; 7],
+            registers: [None; 4],
+        }
+    }
+
+    fn size_to_instruction_index(size: i32) -> usize {
+        match size {
+            8 => 0,
+            16 => 1,
+            32 => 2,
+            64 => 3,
+            _ => panic!("Trying to get instruction index for unknown primitive size!"),
         }
     }
 
@@ -45,7 +74,7 @@ impl<T: Write> CodeGenerator<T> {
     fn get_register(&mut self, size: i32) -> Register {
         for i in 0..self.registers.len() {
             if !self.registers[i].is_some() {
-                let register = Register { size, index: i};
+                let register = Register { size, index: i };
                 self.registers[i] = Some(register);
                 return register;
             }
@@ -87,10 +116,6 @@ impl<T: Write> CodeGenerator<T> {
 
         let expression_type = expression.get_primitive_type();
 
-        println!(
-            "Checking compatibility of {:?} = {:?}",
-            expression_type, scope_var.primitive_type
-        );
         if !expression_type.is_compatible_with(&scope_var.primitive_type) {
             panic!(
                 "Incompatible types in assignment, {:?} = {:?}",
@@ -100,7 +125,16 @@ impl<T: Write> CodeGenerator<T> {
 
         let offset = scope_var.offset;
 
-        self.write(format!("\tmov\t\t{}, -{}(%rbp)", QREGISTERS[reg.index], offset).as_str());
+        let index = Self::size_to_instruction_index(scope_var.primitive_type.get_size());
+
+        self.write(&format!("\tsubq\t${}, %rsp", offset));
+        self.write(
+            format!(
+                "\t{}\t{}, -{}(%rbp)",
+                MOV_INSTR[index], REGISTERS[index][reg.index], offset
+            )
+            .as_str(),
+        );
     }
 
     fn gen_expression(&mut self, expression: &AstNode) -> Register {
@@ -109,11 +143,25 @@ impl<T: Write> CodeGenerator<T> {
                 let left_reg = self.gen_expression(left);
                 let right_reg = self.gen_expression(right);
 
+                assert!(
+                    left.get_primitive_type().get_size() == right.get_primitive_type().get_size()
+                );
+
+                assert!(!left.get_primitive_type().is_signed());
+                assert!(!right.get_primitive_type().is_signed());
+
+                let index = Self::size_to_instruction_index(left.get_primitive_type().get_size());
+
                 match operation_type {
                     BinaryOperationType::Add => {
                         self.write(
-                            format!("\tadd\t\t{}, {}", QREGISTERS[right_reg.index], QREGISTERS[left_reg.index])
-                                .as_str(),
+                            format!(
+                                "\t{}\t{}, {}",
+                                ADD_INSTR[index],
+                                REGISTERS[index][right_reg.index],
+                                REGISTERS[index][left_reg.index]
+                            )
+                            .as_str(),
                         );
                         self.free_register(right_reg);
 
@@ -121,8 +169,13 @@ impl<T: Write> CodeGenerator<T> {
                     }
                     BinaryOperationType::Subtract => {
                         self.write(
-                            format!("\tsub\t\t{}, {}", QREGISTERS[right_reg.index], QREGISTERS[left_reg.index])
-                                .as_str(),
+                            format!(
+                                "\t{}\t{}, {}",
+                                SUB_INSTR[index],
+                                REGISTERS[index][right_reg.index],
+                                REGISTERS[index][left_reg.index]
+                            )
+                            .as_str(),
                         );
                         self.free_register(right_reg);
 
@@ -130,29 +183,50 @@ impl<T: Write> CodeGenerator<T> {
                     }
                     BinaryOperationType::Multiply => {
                         self.write(
-                            format!("\timul\t{}, {}", QREGISTERS[right_reg.index], QREGISTERS[left_reg.index])
-                                .as_str(),
+                            format!(
+                                "\t{}\t{}, {}\n\t{}\t{}\n\t{}\t{}, {}",
+                                MOV_INSTR[index],
+                                REGISTERS[index][right_reg.index],
+                                EAX[index],
+                                MUL_INSTR[index],
+                                REGISTERS[index][left_reg.index],
+                                MOV_INSTR[index],
+                                EAX[index],
+                                REGISTERS[index][left_reg.index]
+                            )
+                            .as_str(),
                         );
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Divide => {
-                        self.write(format!("\tmov\t\t{}, %rax", QREGISTERS[left_reg.index]).as_str());
+                        self.write(format!("\t{}\t{}, {}", MOV_INSTR[index], REGISTERS[index][left_reg.index], EAX[index]).as_str());
                         self.write("\tcltd");
-                        self.write(format!("\tidiv\t{}", QREGISTERS[right_reg.index]).as_str());
-                        self.write(format!("\tmov\t\t%rax, {}", QREGISTERS[left_reg.index]).as_str());
+                        self.write(format!("\t{}\t{}", DIV_INSTR[index], REGISTERS[index][right_reg.index]).as_str());
+                        self.write(format!("\t{}\t{}, {}", MOV_INSTR[index], EAX[index], REGISTERS[index][left_reg.index]).as_str());
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Equals => {
                         self.write(
-                            format!("\tcmpq\t{}, {}", QREGISTERS[right_reg.index], QREGISTERS[left_reg.index])
-                                .as_str(),
+                            format!(
+                                "\t{}\t{}, {}",
+                                CMP_INSTR[index],
+                                REGISTERS[index][right_reg.index],
+                                REGISTERS[index][left_reg.index]
+                            )
+                            .as_str(),
                         );
-                        self.write(format!("\tsete\t{}", BREGISTERS[right_reg.index]).as_str());
-                        self.write(format!("\tandq\t$255, {}", QREGISTERS[right_reg.index]).as_str());
+                        self.write(format!("\tsete\t{}", REGISTERS[0][right_reg.index]).as_str());
+                        self.write(
+                            format!(
+                                "\t{}\t$255, {}",
+                                AND_INSTR[index], REGISTERS[index][right_reg.index]
+                            )
+                            .as_str(),
+                        );
                         self.free_register(left_reg);
                         right_reg
                     }
@@ -160,42 +234,40 @@ impl<T: Write> CodeGenerator<T> {
                 }
             }
             AstNode::NumericLiteral(primitive_type, value) => {
-                // PrimitiveType::Int32 => {
                 let register = self.get_register(primitive_type.get_size());
 
+                //TODO: fix hardcoded union access
+                //TODO: fix hardcoded mov to 64bit reg
                 self.write(
                     format!(
-                        "\tmov\t\t${}, {}",
-                        unsafe { value.int32 },
-                        QREGISTERS[register.index]
+                        "\t{}\t${}, {}",
+                        MOV_INSTR[3],
+                        unsafe { value.int64 },
+                        REGISTERS[3][register.index]
                     )
                     .as_str(),
                 );
 
                 register
-                // }
-                //  _ => panic!(
-                //   "gen_expression does not support {:?} NumericLiteral",
-                //   primitive_type
-                //   ),
             }
             _ => panic!("unsupported astnode in gen_expression"),
         }
     }
 
     fn gen_functioncall(&mut self, name: &String, params: &Vec<String>) {
-        const PARAM_REGISTERS: &[&str] = &["%edi", "%esi"];
-
         let mut index: usize = 0;
 
         for param in params {
+            let scope_var = self
+                .scope
+                .get(param)
+                .expect("Unknown identifier in function call");
+            let instr_index = Self::size_to_instruction_index(scope_var.primitive_type.get_size());
+
+            let var_offset = scope_var.offset;
             self.write(&format!(
-                "\tmov\t\t-{}(%rbp), {}",
-                self.scope
-                    .get(param)
-                    .expect("Unknown identifier in function call")
-                    .offset,
-                PARAM_REGISTERS[index]
+                "\t{}\t-{}(%rbp), {}",
+                MOV_INSTR[instr_index], var_offset, PARAM_REGISTERS[instr_index][index]
             ));
             index += 1;
         }
@@ -227,8 +299,8 @@ impl<T: Write> CodeGenerator<T> {
 
         self.gen_node(node);
 
-        self.write("\tmov\t\t$0, %eax");
-        self.write("\tpop\t\t%rbp");
+        self.write("\tnop");
+        self.write("\tleave");
         self.write("\tret");
     }
 }
