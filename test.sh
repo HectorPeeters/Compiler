@@ -1,8 +1,21 @@
+echo "Building compiler..."
+cargo build > /dev/null 2>&1
+COMPILE_RESULT=$?
+if [ $COMPILE_RESULT -ne 0 ]; then
+    echo "Failed building compiler!"
+    exit 1
+fi
+
 for file in examples/*.sq
 do
     echo -n "Running $file..."
     cargo run $file > /dev/null 2>&1
     gcc output.s
+    GCC_RESULT=$?
+    if [ $GCC_RESULT -ne 0 ]; then
+        echo "Failed running gcc for $file!"
+        exit 1
+    fi
 
     OUTPUT=$(./a.out)
 
@@ -11,7 +24,8 @@ do
     if [ "$OUTPUT" = "$EXPECTED_OUTPUT" ]; then
         echo " ✓"
     else
-        echo ""
+        echo " X"
+        exit 1
     fi
 done
 
