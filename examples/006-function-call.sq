@@ -1,0 +1,9 @@
+{
+    var x: i32;
+    x = 12;
+    print(x);
+
+    var y: i32;
+    y = 13;
+    printsum(x, y);
+}

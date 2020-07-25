@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use crate::types::*;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum SymbolType {
     Variable,
-//    Function,
+    //    Function,
 }
 
 #[derive(Debug)]
@@ -33,19 +33,17 @@ impl Scope {
         self.symbols.get(name)
     }
 
-    pub fn add(&mut self, name: String, symbol_type: SymbolType, primitive_type: PrimitiveType, offset: i32) {
+    pub fn add(&mut self, name: String, symbol_type: SymbolType, primitive_type: PrimitiveType) {
+        self.last_offset += primitive_type.get_size() as i32 / 8;
+
         self.symbols.insert(
             name.clone(),
             Symbol {
                 symbol_type,
                 primitive_type,
                 name,
-                offset,
+                offset: self.last_offset,
             },
         );
-    }
-
-    pub fn last_offset(&self) -> i32 {
-        self.last_offset
     }
 }

@@ -21,6 +21,7 @@ pub enum TokenType {
 
     SemiColon,
     Colon,
+    Comma,
     Var,
     If,
     Type,
@@ -206,6 +207,7 @@ impl<'a> Lexer<'a> {
                 '}' => Some(self.tokenize_single_char(TokenType::RightBrace)),
                 ';' => Some(self.tokenize_single_char(TokenType::SemiColon)),
                 ':' => Some(self.tokenize_single_char(TokenType::Colon)),
+                ',' => Some(self.tokenize_single_char(TokenType::Comma)),
                 '!' => Some(self.tokenize_possible_multichar(
                     TokenType::Negate,
                     TokenType::NotEqualSign,

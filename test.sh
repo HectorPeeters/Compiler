@@ -10,7 +10,7 @@ for file in examples/*.sq
 do
     echo -n "Running $file..."
     cargo run $file > /dev/null 2>&1
-    gcc output.s
+    gcc lib.c output.s
     GCC_RESULT=$?
     if [ $GCC_RESULT -ne 0 ]; then
         echo "Failed running gcc for $file!"
@@ -25,6 +25,7 @@ do
         echo " ✓"
     else
         echo " X"
+        echo "Expected $EXPECTED_OUTPUT but got $OUTPUT"
         exit 1
     fi
 done

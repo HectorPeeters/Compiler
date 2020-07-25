@@ -15,7 +15,7 @@ pub enum PrimitiveType {
 }
 
 impl PrimitiveType {
-    pub fn get_size(&self) -> usize {
+    pub fn get_size(&self) -> i32 {
         match self {
             PrimitiveType::Int8 => 8,
             PrimitiveType::Int16 => 16,

@@ -66,7 +66,7 @@ impl Parser {
 
     fn assert_consume(&mut self, token_type: TokenType) -> &Token {
         let token = self.consume();
-        assert!(token.token_type == token_type);
+        assert!(token.token_type == token_type, "{:?} == {:?}", token.token_type, token_type);
         token
     }
 
@@ -76,7 +76,9 @@ impl Parser {
 
     fn parse_unary_expression(&mut self) -> AstNode {
         let current_token = self.peek(0);
-        if current_token.token_type != TokenType::IntLiteral && current_token.token_type != TokenType::LeftParen{
+        if current_token.token_type != TokenType::IntLiteral
+            && current_token.token_type != TokenType::LeftParen
+        {
             panic!("parse_unary_expression expects IntLiteral token type");
         }
 
@@ -98,12 +100,7 @@ impl Parser {
             primitive_type = PrimitiveType::UInt16;
         }
 
-        AstNode::NumericLiteral(
-            primitive_type,
-            PrimitiveValue {
-                int64: value,
-            },
-        )
+        AstNode::NumericLiteral(primitive_type, PrimitiveValue { int64: value })
     }
 
     /// Converts an expression of binary operators into an AST
@@ -111,7 +108,9 @@ impl Parser {
     /// It uses the pratt parsing algorithm to recursively construct the
     /// AST with the correct precedence rules.
     fn parse_expression(&mut self, precedence: OperatorPrecedence) -> AstNode {
-    let break_condition = |token: &Token| token.token_type == TokenType::SemiColon || token.token_type == TokenType::RightParen;
+        let break_condition = |token: &Token| {
+            token.token_type == TokenType::SemiColon || token.token_type == TokenType::RightParen
+        };
 
         let mut left = self.parse_unary_expression();
 
@@ -171,6 +170,30 @@ impl Parser {
         AstNode::Assignment(identifier_name, Box::new(expression))
     }
 
+    fn parse_functioncall(&mut self) -> AstNode {
+        let name = self.assert_consume(TokenType::Identifier).value.clone();
+
+        self.assert_consume(TokenType::LeftParen);
+
+        let mut params: Vec<String> = Vec::new();
+
+        //TODO: check parameter types
+        loop {
+            params.push(self.assert_consume(TokenType::Identifier).value.to_string());
+
+            if self.peek(0).token_type == TokenType::RightParen {
+                break;
+            } else {
+                self.assert_consume(TokenType::Comma);
+            }
+        }
+
+        self.assert_consume(TokenType::RightParen);
+        self.assert_consume(TokenType::SemiColon);
+
+        AstNode::FunctionCall(name, params)
+    }
+
     fn parse_block(&mut self) -> AstNode {
         let mut children: Vec<AstNode> = vec![];
 
@@ -191,7 +214,18 @@ impl Parser {
         match next_token.token_type {
             TokenType::LeftBrace => self.parse_block(),
             TokenType::Var => self.parse_variable_declaration(),
-            TokenType::Identifier => self.parse_assignment(),
+            TokenType::Identifier => {
+                let next_token_type = self.peek(1).token_type;
+                match next_token_type {
+                    TokenType::LeftParen => {
+                        self.parse_functioncall()
+                    },
+                    TokenType::EqualSign => {
+                        self.parse_assignment()
+                    }
+                    _ => panic!("Unexpected token {:?} after identifier", next_token_type),
+                }
+            }
             _ => panic!("Unexpected token: {:?}", next_token),
         }
     }

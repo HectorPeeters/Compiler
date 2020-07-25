@@ -7,14 +7,19 @@ use std::io::Write;
 pub struct CodeGenerator<T: Write> {
     output: Box<T>,
     scope: Scope,
-    registers: [bool; 7],
+    registers: [Option<Register>; 7],
 }
 
-const REGISTERS: &[&str] = &["%r10", "%r11", "%r12", "%r13", "%r14", "%r15"];
-//const DREGISTERS: &[&str] = &["%r10d", "%r11d", "%r12d", "%r13d", "%r14d", "%r15d"];
+const QREGISTERS: &[&str] = &["%r10", "%r11", "%r12", "%r13", "%r14", "%r15"];
+const DREGISTERS: &[&str] = &["%r10d", "%r11d", "%r12d", "%r13d", "%r14d", "%r15d"];
+const WREGISTERS: &[&str] = &["%r10w", "%r11w", "%r12w", "%r13w", "%r14w", "%r15w"];
 const BREGISTERS: &[&str] = &["%r10b", "%r11b", "%r12b", "%r13b", "%r14b", "%r15b"];
 
-type Register = usize;
+#[derive(Debug, Copy, Clone)]
+struct Register{
+    pub size: i32,
+    pub index: usize,
+}
 
 impl<T: Write> CodeGenerator<T> {
     pub fn new(output: T) -> Self
@@ -24,7 +29,7 @@ impl<T: Write> CodeGenerator<T> {
         CodeGenerator {
             output: Box::new(output),
             scope: Scope::new(),
-            registers: [false; 7],
+            registers: [None; 7],
         }
     }
 
@@ -37,11 +42,12 @@ impl<T: Write> CodeGenerator<T> {
             .expect("Failed to write newline to output file");
     }
 
-    fn get_register(&mut self) -> Register {
+    fn get_register(&mut self, size: i32) -> Register {
         for i in 0..self.registers.len() {
-            if !self.registers[i] {
-                self.registers[i] = true;
-                return i;
+            if !self.registers[i].is_some() {
+                let register = Register { size, index: i};
+                self.registers[i] = Some(register);
+                return register;
             }
         }
 
@@ -49,10 +55,10 @@ impl<T: Write> CodeGenerator<T> {
     }
 
     fn free_register(&mut self, reg: Register) {
-        if !self.registers[reg] {
+        if !self.registers[reg.index].is_some() {
             panic!("Trying to free a register which is already free!");
         }
-        self.registers[reg] = false;
+        self.registers[reg.index] = None;
     }
 
     fn gen_block(&mut self, children: &[AstNode]) {
@@ -66,12 +72,8 @@ impl<T: Write> CodeGenerator<T> {
             panic!("Redeclaration of variable {}", name);
         }
 
-        self.scope.add(
-            String::from(name),
-            SymbolType::Variable,
-            primitive_type,
-            self.scope.last_offset() + 4,
-        );
+        self.scope
+            .add(String::from(name), SymbolType::Variable, primitive_type);
         println!("{:?}", self.scope);
     }
 
@@ -85,14 +87,20 @@ impl<T: Write> CodeGenerator<T> {
 
         let expression_type = expression.get_primitive_type();
 
-        println!("Checking compatibility of {:?} = {:?}", expression_type, scope_var.primitive_type);
+        println!(
+            "Checking compatibility of {:?} = {:?}",
+            expression_type, scope_var.primitive_type
+        );
         if !expression_type.is_compatible_with(&scope_var.primitive_type) {
-            panic!("Incompatible types in assignment, {:?} = {:?}", expression_type, scope_var.primitive_type);
+            panic!(
+                "Incompatible types in assignment, {:?} = {:?}",
+                expression_type, scope_var.primitive_type
+            );
         }
 
         let offset = scope_var.offset;
 
-        self.write(format!("\tmov\t\t{}, -{}(%rbp)", REGISTERS[reg], offset).as_str());
+        self.write(format!("\tmov\t\t{}, -{}(%rbp)", QREGISTERS[reg.index], offset).as_str());
     }
 
     fn gen_expression(&mut self, expression: &AstNode) -> Register {
@@ -104,7 +112,7 @@ impl<T: Write> CodeGenerator<T> {
                 match operation_type {
                     BinaryOperationType::Add => {
                         self.write(
-                            format!("\tadd\t\t{}, {}", REGISTERS[right_reg], REGISTERS[left_reg])
+                            format!("\tadd\t\t{}, {}", QREGISTERS[right_reg.index], QREGISTERS[left_reg.index])
                                 .as_str(),
                         );
                         self.free_register(right_reg);
@@ -113,7 +121,7 @@ impl<T: Write> CodeGenerator<T> {
                     }
                     BinaryOperationType::Subtract => {
                         self.write(
-                            format!("\tsub\t\t{}, {}", REGISTERS[right_reg], REGISTERS[left_reg])
+                            format!("\tsub\t\t{}, {}", QREGISTERS[right_reg.index], QREGISTERS[left_reg.index])
                                 .as_str(),
                         );
                         self.free_register(right_reg);
@@ -122,7 +130,7 @@ impl<T: Write> CodeGenerator<T> {
                     }
                     BinaryOperationType::Multiply => {
                         self.write(
-                            format!("\timul\t{}, {}", REGISTERS[right_reg], REGISTERS[left_reg])
+                            format!("\timul\t{}, {}", QREGISTERS[right_reg.index], QREGISTERS[left_reg.index])
                                 .as_str(),
                         );
                         self.free_register(right_reg);
@@ -130,46 +138,69 @@ impl<T: Write> CodeGenerator<T> {
                         left_reg
                     }
                     BinaryOperationType::Divide => {
-                        self.write(format!("\tmov\t\t{}, %rax", REGISTERS[left_reg]).as_str());
+                        self.write(format!("\tmov\t\t{}, %rax", QREGISTERS[left_reg.index]).as_str());
                         self.write("\tcltd");
-                        self.write(format!("\tidiv\t{}", REGISTERS[right_reg]).as_str());
-                        self.write(format!("\tmov\t\t%rax, {}", REGISTERS[left_reg]).as_str());
+                        self.write(format!("\tidiv\t{}", QREGISTERS[right_reg.index]).as_str());
+                        self.write(format!("\tmov\t\t%rax, {}", QREGISTERS[left_reg.index]).as_str());
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Equals => {
-                        self.write(format!("\tcmpq\t{}, {}", REGISTERS[right_reg], REGISTERS[left_reg]).as_str());
-                        self.write(format!("\tsete\t{}", BREGISTERS[right_reg]).as_str());
-                        self.write(format!("\tandq\t$255, {}", REGISTERS[right_reg]).as_str());
+                        self.write(
+                            format!("\tcmpq\t{}, {}", QREGISTERS[right_reg.index], QREGISTERS[left_reg.index])
+                                .as_str(),
+                        );
+                        self.write(format!("\tsete\t{}", BREGISTERS[right_reg.index]).as_str());
+                        self.write(format!("\tandq\t$255, {}", QREGISTERS[right_reg.index]).as_str());
                         self.free_register(left_reg);
                         right_reg
                     }
-                    _ => panic!("Trying to generate binary operation type which isn't supported!")
+                    _ => panic!("Trying to generate binary operation type which isn't supported!"),
                 }
             }
-            AstNode::NumericLiteral(_primitive_type, value) => {
+            AstNode::NumericLiteral(primitive_type, value) => {
                 // PrimitiveType::Int32 => {
-                    let register = self.get_register();
+                let register = self.get_register(primitive_type.get_size());
 
-                    self.write(
-                        format!(
-                            "\tmov\t\t${}, {}",
-                            unsafe { value.int32 },
-                            REGISTERS[register]
-                        )
-                        .as_str(),
-                    );
+                self.write(
+                    format!(
+                        "\tmov\t\t${}, {}",
+                        unsafe { value.int32 },
+                        QREGISTERS[register.index]
+                    )
+                    .as_str(),
+                );
 
-                    register
+                register
                 // }
-            //  _ => panic!(
+                //  _ => panic!(
                 //   "gen_expression does not support {:?} NumericLiteral",
                 //   primitive_type
-            //   ),
-            },
+                //   ),
+            }
             _ => panic!("unsupported astnode in gen_expression"),
         }
+    }
+
+    fn gen_functioncall(&mut self, name: &String, params: &Vec<String>) {
+        const PARAM_REGISTERS: &[&str] = &["%edi", "%esi"];
+
+        let mut index: usize = 0;
+
+        for param in params {
+            self.write(&format!(
+                "\tmov\t\t-{}(%rbp), {}",
+                self.scope
+                    .get(param)
+                    .expect("Unknown identifier in function call")
+                    .offset,
+                PARAM_REGISTERS[index]
+            ));
+            index += 1;
+        }
+
+        self.write(&format!("\tcall\t{}", name));
     }
 
     fn gen_node(&mut self, node: &AstNode) {
@@ -179,7 +210,8 @@ impl<T: Write> CodeGenerator<T> {
                 self.gen_declaration(name, *primitive_type)
             }
             AstNode::Assignment(name, expression) => self.gen_assignment(name, expression),
-            _ => {}
+            AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
+            _ => panic!("Trying to generate assembly for unsupported ast node!"),
         }
     }
 
@@ -194,13 +226,6 @@ impl<T: Write> CodeGenerator<T> {
         self.write("\tmov\t\t%rsp, %rbp");
 
         self.gen_node(node);
-
-        let offset = self.scope.get("x").unwrap().offset;
-        self.write(format!("\tmov\t\t-{}(%rbp), %eax", offset).as_str());
-        self.write("\tmov\t\t%eax, %esi");
-        self.write("\tleaq\t.LC0(%rip), %rdi");
-        self.write("\tmov\t\t$0, %eax");
-        self.write("\tcall\tprintf@PLT");
 
         self.write("\tmov\t\t$0, %eax");
         self.write("\tpop\t\t%rbp");

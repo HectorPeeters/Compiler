@@ -1,4 +1,5 @@
 {
     var x: bool;
     x = 13 == 13;
+    print(x);
 }
