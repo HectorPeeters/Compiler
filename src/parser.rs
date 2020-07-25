@@ -76,8 +76,15 @@ impl Parser {
 
     fn parse_unary_expression(&mut self) -> AstNode {
         let current_token = self.peek(0);
-        if current_token.token_type != TokenType::IntLiteral {
+        if current_token.token_type != TokenType::IntLiteral && current_token.token_type != TokenType::LeftParen{
             panic!("parse_unary_expression expects IntLiteral token type");
+        }
+
+        if current_token.token_type == TokenType::LeftParen {
+            self.assert_consume(TokenType::LeftParen);
+            let expression = self.parse_expression(OperatorPrecedence::Zero);
+            self.assert_consume(TokenType::RightParen);
+            return expression;
         }
 
         let value = self.consume().value.parse::<i64>().unwrap();
@@ -104,7 +111,7 @@ impl Parser {
     /// It uses the pratt parsing algorithm to recursively construct the
     /// AST with the correct precedence rules.
     fn parse_expression(&mut self, precedence: OperatorPrecedence) -> AstNode {
-        let break_condition = |token: &Token| token.token_type == TokenType::SemiColon;
+    let break_condition = |token: &Token| token.token_type == TokenType::SemiColon || token.token_type == TokenType::RightParen;
 
         let mut left = self.parse_unary_expression();
 

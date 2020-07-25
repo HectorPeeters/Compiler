@@ -9,6 +9,8 @@ pub enum TokenType {
     Star,
     Slash,
 
+    Negate,
+
     Identifier,
     EqualSign,
 
@@ -24,7 +26,7 @@ pub enum TokenType {
     Type,
 
     DoubleEqualSign,
-    //NotEqualSign,
+    NotEqualSign,
     LessThan,
     GreaterThan,
     LessThanOrEqual,
@@ -140,7 +142,9 @@ impl<'a> Lexer<'a> {
         match keyword {
             "if" => Some(TokenType::If),
             "var" => Some(TokenType::Var),
-            "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "bool" => Some(TokenType::Type),
+            "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "bool" => {
+                Some(TokenType::Type)
+            }
             _ => None,
         }
     }
@@ -202,6 +206,11 @@ impl<'a> Lexer<'a> {
                 '}' => Some(self.tokenize_single_char(TokenType::RightBrace)),
                 ';' => Some(self.tokenize_single_char(TokenType::SemiColon)),
                 ':' => Some(self.tokenize_single_char(TokenType::Colon)),
+                '!' => Some(self.tokenize_possible_multichar(
+                    TokenType::Negate,
+                    TokenType::NotEqualSign,
+                    "=",
+                )),
                 '=' => Some(self.tokenize_possible_multichar(
                     TokenType::EqualSign,
                     TokenType::DoubleEqualSign,

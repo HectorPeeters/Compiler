@@ -130,10 +130,10 @@ impl<T: Write> CodeGenerator<T> {
                         left_reg
                     }
                     BinaryOperationType::Divide => {
-                        self.write(format!("\tmov\t\t{}, %eax", REGISTERS[left_reg]).as_str());
+                        self.write(format!("\tmov\t\t{}, %rax", REGISTERS[left_reg]).as_str());
                         self.write("\tcltd");
                         self.write(format!("\tidiv\t{}", REGISTERS[right_reg]).as_str());
-                        self.write(format!("\tmov\t\t%eax, {}", REGISTERS[left_reg]).as_str());
+                        self.write(format!("\tmov\t\t%rax, {}", REGISTERS[left_reg]).as_str());
                         self.free_register(right_reg);
 
                         left_reg
