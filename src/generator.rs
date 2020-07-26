@@ -128,14 +128,32 @@ impl<T: Write> CodeGenerator<T> {
         let index = Self::size_to_instruction_index(scope_var.primitive_type.get_size());
 
         self.write(&format!("\tsubq\t${}, %rsp", offset));
-        self.write(
-            &format!(
-                "\t{}\t{}, -{}(%rbp)",
-                MOV_INSTR[index], REGISTERS[index][reg.index], offset
-            ),
-        );
+        self.write(&format!(
+            "\t{}\t{}, -{}(%rbp)",
+            MOV_INSTR[index], REGISTERS[index][reg.index], offset
+        ));
 
         self.free_register(reg);
+    }
+
+    fn gen_comparison(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        index: usize,
+        comparison_type: &str,
+    ) -> Register {
+        self.write(&format!(
+            "\t{}\t{}, {}",
+            CMP_INSTR[index], REGISTERS[index][right_reg.index], REGISTERS[index][left_reg.index]
+        ));
+        self.write(&format!("\t{}\t{}", comparison_type, REGISTERS[0][right_reg.index]));
+        self.write(&format!(
+            "\t{}\t$255, {}",
+            AND_INSTR[index], REGISTERS[index][right_reg.index]
+        ));
+        self.free_register(left_reg);
+        right_reg
     }
 
     fn gen_expression(&mut self, expression: &AstNode) -> Register {
@@ -150,96 +168,70 @@ impl<T: Write> CodeGenerator<T> {
 
                 let left_reg = self.gen_expression(left);
                 let right_reg = self.gen_expression(right);
-                
                 let index = Self::size_to_instruction_index(left.get_primitive_type().get_size());
 
                 match operation_type {
                     BinaryOperationType::Add => {
-                        self.write(
-                            &format!(
-                                "\t{}\t{}, {}",
-                                ADD_INSTR[index],
-                                REGISTERS[index][right_reg.index],
-                                REGISTERS[index][left_reg.index]
-                            ),
-                        );
+                        self.write(&format!(
+                            "\t{}\t{}, {}",
+                            ADD_INSTR[index],
+                            REGISTERS[index][right_reg.index],
+                            REGISTERS[index][left_reg.index]
+                        ));
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Subtract => {
-                        self.write(
-                            &format!(
-                                "\t{}\t{}, {}",
-                                SUB_INSTR[index],
-                                REGISTERS[index][right_reg.index],
-                                REGISTERS[index][left_reg.index]
-                            ),
-                        );
+                        self.write(&format!(
+                            "\t{}\t{}, {}",
+                            SUB_INSTR[index],
+                            REGISTERS[index][right_reg.index],
+                            REGISTERS[index][left_reg.index]
+                        ));
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Multiply => {
-                        self.write(
-                            &format!(
-                                "\t{}\t{}, {}\n\t{}\t{}\n\t{}\t{}, {}",
-                                MOV_INSTR[index],
-                                REGISTERS[index][right_reg.index],
-                                EAX[index],
-                                MUL_INSTR[index],
-                                REGISTERS[index][left_reg.index],
-                                MOV_INSTR[index],
-                                EAX[index],
-                                REGISTERS[index][left_reg.index]
-                            ),
-                        );
+                        self.write(&format!(
+                            "\t{}\t{}, {}\n\t{}\t{}\n\t{}\t{}, {}",
+                            MOV_INSTR[index],
+                            REGISTERS[index][right_reg.index],
+                            EAX[index],
+                            MUL_INSTR[index],
+                            REGISTERS[index][left_reg.index],
+                            MOV_INSTR[index],
+                            EAX[index],
+                            REGISTERS[index][left_reg.index]
+                        ));
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Divide => {
-                        self.write(
-                            &format!(
-                                "\t{}\t{}, {}",
-                                MOV_INSTR[index], REGISTERS[index][left_reg.index], EAX[index]
-                            ),
-                        );
+                        self.write(&format!(
+                            "\t{}\t{}, {}",
+                            MOV_INSTR[index], REGISTERS[index][left_reg.index], EAX[index]
+                        ));
                         self.write("\tcltd");
-                        self.write(
-                            &format!(
-                                "\t{}\t{}",
-                                DIV_INSTR[index], REGISTERS[index][right_reg.index]
-                            ),
-                        );
-                        self.write(
-                            &format!(
-                                "\t{}\t{}, {}",
-                                MOV_INSTR[index], EAX[index], REGISTERS[index][left_reg.index]
-                            ),
-                        );
+                        self.write(&format!(
+                            "\t{}\t{}",
+                            DIV_INSTR[index], REGISTERS[index][right_reg.index]
+                        ));
+                        self.write(&format!(
+                            "\t{}\t{}, {}",
+                            MOV_INSTR[index], EAX[index], REGISTERS[index][left_reg.index]
+                        ));
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Equals => {
-                        self.write(
-                            &format!(
-                                "\t{}\t{}, {}",
-                                CMP_INSTR[index],
-                                REGISTERS[index][right_reg.index],
-                                REGISTERS[index][left_reg.index]
-                            ),
-                        );
-                        self.write(&format!("\tsete\t{}", REGISTERS[0][right_reg.index]));
-                        self.write(
-                            &format!(
-                                "\t{}\t$255, {}",
-                                AND_INSTR[index], REGISTERS[index][right_reg.index]
-                            ),
-                        );
-                        self.free_register(left_reg);
-                        right_reg
+                        self.gen_comparison(left_reg, right_reg, index, "sete")
+                    }
+                    BinaryOperationType::NotEquals => {
+                        self.gen_comparison(left_reg, right_reg, index, "setne")
                     }
                     _ => panic!("Trying to generate binary operation type which isn't supported!"),
                 }
@@ -249,14 +241,12 @@ impl<T: Write> CodeGenerator<T> {
 
                 //TODO: fix hardcoded union access
                 //TODO: fix hardcoded mov to 64bit reg
-                self.write(
-                    &format!(
-                        "\t{}\t${}, {}",
-                        MOV_INSTR[3],
-                        unsafe { value.int64 },
-                        REGISTERS[3][register.index]
-                    ),
-                );
+                self.write(&format!(
+                    "\t{}\t${}, {}",
+                    MOV_INSTR[3],
+                    unsafe { value.int64 },
+                    REGISTERS[3][register.index]
+                ));
 
                 register
             }
@@ -266,12 +256,14 @@ impl<T: Write> CodeGenerator<T> {
                 assert!(primitive_type.is_unsigned());
                 let result_reg = self.get_register(primitive_type.get_size());
 
-                let src_index = Self::size_to_instruction_index(node.get_primitive_type().get_size());
+                let src_index =
+                    Self::size_to_instruction_index(node.get_primitive_type().get_size());
                 let dst_index = Self::size_to_instruction_index(primitive_type.get_size());
 
-                self.write(
-                    &format!("\tmovzx\t{}, {}", REGISTERS[src_index][register.index], REGISTERS[dst_index][result_reg.index])
-                );
+                self.write(&format!(
+                    "\tmovzx\t{}, {}",
+                    REGISTERS[src_index][register.index], REGISTERS[dst_index][result_reg.index]
+                ));
 
                 self.free_register(register);
 

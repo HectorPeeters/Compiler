@@ -23,6 +23,7 @@ fn token_type_to_operator(token_type: TokenType) -> BinaryOperationType {
         TokenType::Star => BinaryOperationType::Multiply,
         TokenType::Slash => BinaryOperationType::Divide,
         TokenType::DoubleEqualSign => BinaryOperationType::Equals,
+        TokenType::NotEqualSign => BinaryOperationType::NotEquals,
         _ => panic!(
             "Trying to convert a non operator token type to a binary operator type, {:?}",
             token_type
@@ -34,7 +35,7 @@ fn get_operator_precedence(operation_type: BinaryOperationType) -> OperatorPrece
     match operation_type {
         BinaryOperationType::Add | BinaryOperationType::Subtract => OperatorPrecedence::AddSubtract,
         BinaryOperationType::Multiply | BinaryOperationType::Divide => OperatorPrecedence::MulDiv,
-        BinaryOperationType::Equals => OperatorPrecedence::EqualsNotEquals,
+        BinaryOperationType::Equals | BinaryOperationType::NotEquals => OperatorPrecedence::EqualsNotEquals,
         _ => panic!(
             "Trying to convert a non operator token type to an operator precedence, {:?}",
             operation_type

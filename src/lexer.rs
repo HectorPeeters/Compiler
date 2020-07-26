@@ -9,7 +9,7 @@ pub enum TokenType {
     Star,
     Slash,
 
-    Negate,
+    ExclamationMark,
 
     Identifier,
     EqualSign,
@@ -215,7 +215,7 @@ impl<'a> Lexer<'a> {
                 ':' => Some(self.tokenize_single_char(TokenType::Colon)),
                 ',' => Some(self.tokenize_single_char(TokenType::Comma)),
                 '!' => Some(self.tokenize_possible_multichar(
-                    TokenType::Negate,
+                    TokenType::ExclamationMark,
                     TokenType::NotEqualSign,
                     "=",
                 )),

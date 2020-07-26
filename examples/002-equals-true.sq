@@ -2,4 +2,7 @@
     var x: bool;
     x = 13 == 13;
     print8(x);
+
+    x = 13 != 12;
+    print8(x);
 }
