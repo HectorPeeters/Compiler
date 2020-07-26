@@ -192,6 +192,12 @@ impl<'a> Lexer<'a> {
         while !self.eof() {
             self.skip_whitespace();
 
+            while self.peek(0) == "#" {
+                self.consume_while(|c| !is_newline(c));
+                self.consume();
+                self.skip_whitespace();
+            }
+
             let current_char = self.peek(0);
 
             let token = match current_char.chars().next().unwrap() {
