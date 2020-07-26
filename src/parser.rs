@@ -89,18 +89,18 @@ impl Parser {
             return expression;
         }
 
-        let value = self.consume().value.parse::<i64>().unwrap();
+        let value = self.consume().value.parse::<u64>().unwrap();
         let mut primitive_type = PrimitiveType::UInt8;
 
-        if value > 2i64.pow(32) {
+        if value > 2u64.pow(32) {
             primitive_type = PrimitiveType::UInt64;
-        } else if value > 2i64.pow(16) {
+        } else if value > 2u64.pow(16) {
             primitive_type = PrimitiveType::UInt32;
-        } else if value > 2i64.pow(8) {
+        } else if value > 2u64.pow(8) {
             primitive_type = PrimitiveType::UInt16;
         }
 
-        AstNode::NumericLiteral(primitive_type, PrimitiveValue { int64: value })
+        AstNode::NumericLiteral(primitive_type, PrimitiveValue { uint64: value })
     }
 
     /// Converts an expression of binary operators into an AST
@@ -126,7 +126,17 @@ impl Parser {
         while current_precedence > precedence {
             self.consume();
 
-            let right = self.parse_expression(current_precedence);
+            let mut right = self.parse_expression(current_precedence);
+
+            if !left.get_primitive_type().is_compatible_with(&right.get_primitive_type(), false) {
+                panic!("Incompatible types in expression");
+            }
+
+            if left.get_primitive_type().get_size() > right.get_primitive_type().get_size() { 
+                right = AstNode::Widen(left.get_primitive_type(), Box::new(right));
+            } else if left.get_primitive_type().get_size() < right.get_primitive_type().get_size() {
+                left = AstNode::Widen(right.get_primitive_type(), Box::new(left));
+            }
 
             left = AstNode::BinaryOperation(operator_type, Box::new(left), Box::new(right));
 

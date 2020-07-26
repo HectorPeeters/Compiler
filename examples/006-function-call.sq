@@ -1,7 +1,7 @@
 {
     var x: u32;
     x = 12;
-    print(x);
+    print32(x);
 
     var y: u32;
     y = 13;

@@ -1,5 +1,5 @@
 {
     var x: u32;
     x = 12 + 34 * 2 - 13;
-    print(x);
+    print32(x);
 }

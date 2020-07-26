@@ -26,7 +26,7 @@ pub enum AstNode {
     VariableDeclaration(String, PrimitiveType),
     Assignment(String, Box<AstNode>),
     FunctionCall(String, Vec<String>),
-    //Widen(PrimitiveType, Box<AstNode>),
+    Widen(PrimitiveType, Box<AstNode>),
     //  Empty(),
     Block(Vec<AstNode>),
 }
@@ -44,59 +44,69 @@ impl AstNode {
                     "{}{:?}: {:?}",
                     " ".repeat(indentation),
                     primitive_type,
-                    unsafe { value.int32 }
+                    unsafe { value.uint32 }
                 );
             }
             AstNode::Block(children) => {
                 println!("{}Block", " ".repeat(indentation));
                 for child in children {
-                    child.print(indentation + 1);
+                    child.print(indentation + 2);
                 }
             }
             AstNode::VariableDeclaration(name, primitive_type) => {
-                println!("{}Var {}: {:?}", " ".repeat(indentation), name, primitive_type);
+                println!(
+                    "{}Var {}: {:?}",
+                    " ".repeat(indentation),
+                    name,
+                    primitive_type
+                );
             }
             AstNode::Assignment(name, node) => {
                 println!("{}{} =", " ".repeat(indentation), name);
-                node.print(indentation + 1);
+                node.print(indentation + 2);
             }
             AstNode::FunctionCall(name, params) => {
                 print!("{}{}(", " ".repeat(indentation), name);
+                let mut i = 0;
                 for param in params {
-                    print!("{}, ", param);
+                    print!("{}", param);
+                    if i != params.len() - 1 {
+                        print!(",");
+                    }
+                    i += 1;
                 }
                 println!(")");
             }
-            //AstNode::Widen(primitive_type, node) => {
-            //    println!("{}Widen {:?}", " ".repeat(indentation), primitive_type);
-            //    node.print(indentation + 1);
-            //}
+            AstNode::Widen(primitive_type, node) => {
+                println!("{}Widen {:?}", " ".repeat(indentation), primitive_type);
+                node.print(indentation + 2);
+            }
         }
     }
 
     pub fn get_primitive_type(&self) -> PrimitiveType {
         match self {
-            AstNode::BinaryOperation(op_type, left, right) => {
-                match op_type {
-                    BinaryOperationType::Equals | BinaryOperationType::NotEquals | BinaryOperationType::LessThan | BinaryOperationType::LessThanOrEqual | BinaryOperationType::GreaterThan | BinaryOperationType::GreaterThanOrEqual => {
-                        PrimitiveType::Bool
-                    },
-                    _ => {
-                        let left_type = left.get_primitive_type();
-                        let right_type = right.get_primitive_type();
+            AstNode::BinaryOperation(op_type, left, right) => match op_type {
+                BinaryOperationType::Equals
+                | BinaryOperationType::NotEquals
+                | BinaryOperationType::LessThan
+                | BinaryOperationType::LessThanOrEqual
+                | BinaryOperationType::GreaterThan
+                | BinaryOperationType::GreaterThanOrEqual => PrimitiveType::Bool,
+                _ => {
+                    let left_type = left.get_primitive_type();
+                    let right_type = right.get_primitive_type();
 
-                        if left_type.get_size() > right_type.get_size() {
-                            left_type
-                        } else {
-                            right_type
-                        }
+                    if left_type.get_size() > right_type.get_size() {
+                        left_type
+                    } else {
+                        right_type
                     }
                 }
             },
             AstNode::NumericLiteral(primitive_type, _) => *primitive_type,
-            _ => {
-                PrimitiveType::Unknown
-            }
+            AstNode::Widen(primitive_type, _) => *primitive_type,
+            _ => PrimitiveType::Unknown,
         }
     }
 }

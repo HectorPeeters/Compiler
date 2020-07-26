@@ -50,7 +50,7 @@ impl PrimitiveType {
         }
     }
 
-    pub fn is_compatible_with(&self, dest_type: &PrimitiveType) -> bool {
+    pub fn is_compatible_with(&self, dest_type: &PrimitiveType, one_sided: bool) -> bool {
         if self == dest_type {
             return true;
         }
@@ -61,6 +61,18 @@ impl PrimitiveType {
 
         if self.is_signed() && dest_type.is_unsigned() {
             return false;
+        }
+
+        if !one_sided {
+            if *self != PrimitiveType::Bool && *dest_type == PrimitiveType::Bool {
+                return false;
+            }
+
+            if self.is_unsigned() && dest_type.is_signed() {
+                return false;
+            }
+
+            return true;
         }
 
         dest_type.get_size() > self.get_size()

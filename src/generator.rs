@@ -116,7 +116,7 @@ impl<T: Write> CodeGenerator<T> {
 
         let expression_type = expression.get_primitive_type();
 
-        if !expression_type.is_compatible_with(&scope_var.primitive_type) {
+        if !expression_type.is_compatible_with(&scope_var.primitive_type, true) {
             panic!(
                 "Incompatible types in assignment, {:?} = {:?}",
                 expression_type, scope_var.primitive_type
@@ -129,20 +129,18 @@ impl<T: Write> CodeGenerator<T> {
 
         self.write(&format!("\tsubq\t${}, %rsp", offset));
         self.write(
-            format!(
+            &format!(
                 "\t{}\t{}, -{}(%rbp)",
                 MOV_INSTR[index], REGISTERS[index][reg.index], offset
-            )
-            .as_str(),
+            ),
         );
+
+        self.free_register(reg);
     }
 
     fn gen_expression(&mut self, expression: &AstNode) -> Register {
         match expression {
             AstNode::BinaryOperation(operation_type, left, right) => {
-                let left_reg = self.gen_expression(left);
-                let right_reg = self.gen_expression(right);
-
                 assert!(
                     left.get_primitive_type().get_size() == right.get_primitive_type().get_size()
                 );
@@ -150,18 +148,20 @@ impl<T: Write> CodeGenerator<T> {
                 assert!(!left.get_primitive_type().is_signed());
                 assert!(!right.get_primitive_type().is_signed());
 
+                let left_reg = self.gen_expression(left);
+                let right_reg = self.gen_expression(right);
+                
                 let index = Self::size_to_instruction_index(left.get_primitive_type().get_size());
 
                 match operation_type {
                     BinaryOperationType::Add => {
                         self.write(
-                            format!(
+                            &format!(
                                 "\t{}\t{}, {}",
                                 ADD_INSTR[index],
                                 REGISTERS[index][right_reg.index],
                                 REGISTERS[index][left_reg.index]
-                            )
-                            .as_str(),
+                            ),
                         );
                         self.free_register(right_reg);
 
@@ -169,13 +169,12 @@ impl<T: Write> CodeGenerator<T> {
                     }
                     BinaryOperationType::Subtract => {
                         self.write(
-                            format!(
+                            &format!(
                                 "\t{}\t{}, {}",
                                 SUB_INSTR[index],
                                 REGISTERS[index][right_reg.index],
                                 REGISTERS[index][left_reg.index]
-                            )
-                            .as_str(),
+                            ),
                         );
                         self.free_register(right_reg);
 
@@ -183,7 +182,7 @@ impl<T: Write> CodeGenerator<T> {
                     }
                     BinaryOperationType::Multiply => {
                         self.write(
-                            format!(
+                            &format!(
                                 "\t{}\t{}, {}\n\t{}\t{}\n\t{}\t{}, {}",
                                 MOV_INSTR[index],
                                 REGISTERS[index][right_reg.index],
@@ -193,39 +192,51 @@ impl<T: Write> CodeGenerator<T> {
                                 MOV_INSTR[index],
                                 EAX[index],
                                 REGISTERS[index][left_reg.index]
-                            )
-                            .as_str(),
+                            ),
                         );
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Divide => {
-                        self.write(format!("\t{}\t{}, {}", MOV_INSTR[index], REGISTERS[index][left_reg.index], EAX[index]).as_str());
+                        self.write(
+                            &format!(
+                                "\t{}\t{}, {}",
+                                MOV_INSTR[index], REGISTERS[index][left_reg.index], EAX[index]
+                            ),
+                        );
                         self.write("\tcltd");
-                        self.write(format!("\t{}\t{}", DIV_INSTR[index], REGISTERS[index][right_reg.index]).as_str());
-                        self.write(format!("\t{}\t{}, {}", MOV_INSTR[index], EAX[index], REGISTERS[index][left_reg.index]).as_str());
+                        self.write(
+                            &format!(
+                                "\t{}\t{}",
+                                DIV_INSTR[index], REGISTERS[index][right_reg.index]
+                            ),
+                        );
+                        self.write(
+                            &format!(
+                                "\t{}\t{}, {}",
+                                MOV_INSTR[index], EAX[index], REGISTERS[index][left_reg.index]
+                            ),
+                        );
                         self.free_register(right_reg);
 
                         left_reg
                     }
                     BinaryOperationType::Equals => {
                         self.write(
-                            format!(
+                            &format!(
                                 "\t{}\t{}, {}",
                                 CMP_INSTR[index],
                                 REGISTERS[index][right_reg.index],
                                 REGISTERS[index][left_reg.index]
-                            )
-                            .as_str(),
+                            ),
                         );
-                        self.write(format!("\tsete\t{}", REGISTERS[0][right_reg.index]).as_str());
+                        self.write(&format!("\tsete\t{}", REGISTERS[0][right_reg.index]));
                         self.write(
-                            format!(
+                            &format!(
                                 "\t{}\t$255, {}",
                                 AND_INSTR[index], REGISTERS[index][right_reg.index]
-                            )
-                            .as_str(),
+                            ),
                         );
                         self.free_register(left_reg);
                         right_reg
@@ -239,16 +250,32 @@ impl<T: Write> CodeGenerator<T> {
                 //TODO: fix hardcoded union access
                 //TODO: fix hardcoded mov to 64bit reg
                 self.write(
-                    format!(
+                    &format!(
                         "\t{}\t${}, {}",
                         MOV_INSTR[3],
                         unsafe { value.int64 },
                         REGISTERS[3][register.index]
-                    )
-                    .as_str(),
+                    ),
                 );
 
                 register
+            }
+            AstNode::Widen(primitive_type, node) => {
+                let register = self.gen_expression(node);
+
+                assert!(primitive_type.is_unsigned());
+                let result_reg = self.get_register(primitive_type.get_size());
+
+                let src_index = Self::size_to_instruction_index(node.get_primitive_type().get_size());
+                let dst_index = Self::size_to_instruction_index(primitive_type.get_size());
+
+                self.write(
+                    &format!("\tmovzx\t{}, {}", REGISTERS[src_index][register.index], REGISTERS[dst_index][result_reg.index])
+                );
+
+                self.free_register(register);
+
+                result_reg
             }
             _ => panic!("unsupported astnode in gen_expression"),
         }
@@ -257,6 +284,8 @@ impl<T: Write> CodeGenerator<T> {
     fn gen_functioncall(&mut self, name: &String, params: &Vec<String>) {
         let mut index: usize = 0;
 
+        assert!(params.len() <= PARAM_REGISTERS.len());
+
         for param in params {
             let scope_var = self
                 .scope
@@ -264,6 +293,7 @@ impl<T: Write> CodeGenerator<T> {
                 .expect("Unknown identifier in function call");
             let instr_index = Self::size_to_instruction_index(scope_var.primitive_type.get_size());
 
+            //TODO: maybe make this movzx?
             let var_offset = scope_var.offset;
             self.write(&format!(
                 "\t{}\t-{}(%rbp), {}",
