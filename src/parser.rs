@@ -122,7 +122,7 @@ impl Parser {
                     .unwrap();
                 let mut primitive_type = PrimitiveType::UInt8;
 
-                if value > 2u64.pow(32) - 1{
+                if value > 2u64.pow(32) - 1 {
                     primitive_type = PrimitiveType::UInt64;
                 } else if value > 2u64.pow(16) - 1 {
                     primitive_type = PrimitiveType::UInt32;
@@ -134,7 +134,9 @@ impl Parser {
             }
             TokenType::Identifier => {
                 let identifier = self.assert_consume(TokenType::Identifier).value.clone();
-                let scope_var = self.find_scope_var(&identifier).expect("Undefined identifier!");
+                let scope_var = self
+                    .find_scope_var(&identifier)
+                    .expect("Undefined identifier!");
                 AstNode::Identifier(scope_var.clone())
             }
             _ => unreachable!(),
@@ -150,6 +152,7 @@ impl Parser {
             token.token_type == TokenType::SemiColon
                 || token.token_type == TokenType::RightParen
                 || token.token_type == TokenType::Comma
+                || token.token_type == TokenType::LeftBrace
         };
 
         let mut left = self.parse_unary_expression();
@@ -224,7 +227,9 @@ impl Parser {
         let expression = self.parse_expression(OperatorPrecedence::Zero);
         self.consume();
 
-        let scope_var = self.find_scope_var(&identifier_name).expect("Unknown identifier");
+        let scope_var = self
+            .find_scope_var(&identifier_name)
+            .expect("Unknown identifier");
         AstNode::Assignment(scope_var.clone(), Box::new(expression))
     }
 
@@ -272,10 +277,24 @@ impl Parser {
         AstNode::Block(children)
     }
 
+    fn parse_if(&mut self) -> AstNode {
+        self.assert_consume(TokenType::If);
+
+        let expression = self.parse_expression(OperatorPrecedence::Zero);
+        if expression.get_primitive_type() != PrimitiveType::Bool {
+            panic!("If statement should contain a boolean expression");
+        }
+
+        let code = self.parse();
+
+        AstNode::If(Box::new(expression), Box::new(code))
+    }
+
     pub fn parse(&mut self) -> AstNode {
         let next_token: &Token = self.peek(0);
         match next_token.token_type {
             TokenType::LeftBrace => self.parse_block(),
+            TokenType::If => self.parse_if(),
             TokenType::Var => self.parse_variable_declaration(),
             TokenType::Identifier => {
                 let next_token_type = self.peek(1).token_type;

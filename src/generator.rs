@@ -6,6 +6,7 @@ use std::io::Write;
 pub struct CodeGenerator<T: Write> {
     output: Box<T>,
     registers: [Option<Register>; 4],
+    label_index: i32,
 }
 
 const REGISTERS: &[&[&str]] = &[
@@ -46,6 +47,7 @@ impl<T: Write> CodeGenerator<T> {
         CodeGenerator {
             output: Box::new(output),
             registers: [None; 4],
+            label_index: 0,
         }
     }
 
@@ -91,6 +93,12 @@ impl<T: Write> CodeGenerator<T> {
         for child in children {
             self.gen_node(child);
         }
+    }
+
+    fn get_label(&mut self) -> i32 {
+        let result = self.label_index;
+        self.label_index += 1;
+        result
     }
 
     fn gen_declaration(&mut self, _variable: &Symbol) {
@@ -307,12 +315,28 @@ impl<T: Write> CodeGenerator<T> {
         self.write(&format!("\tcall\t{}", name));
     }
 
+    fn gen_if(&mut self, condition: &AstNode, code: &AstNode) {
+        let condition_reg = self.gen_expression(&condition);
+
+        let label = self.get_label();
+
+        let instr_index = Self::size_to_instruction_index(condition_reg.size);
+
+        self.write(&format!("\t{}\t$0, {}", CMP_INSTR[instr_index], REGISTERS[instr_index][condition_reg.index]));
+        self.write(&format!("\tjz\t\tL{}", label));
+        self.gen_node(code);
+        self.write(&format!("L{}:", label));
+
+        self.free_register(condition_reg);
+    }
+
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
             AstNode::VariableDeclaration(var) => self.gen_declaration(var),
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
+            AstNode::If(condition, code) => self.gen_if(condition, code),
             _ => panic!("Trying to generate assembly for unsupported ast node!"),
         }
     }
