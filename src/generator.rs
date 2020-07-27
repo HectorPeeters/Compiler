@@ -1,12 +1,10 @@
 use crate::ast::*;
 use crate::scope::*;
-use crate::types::*;
 
 use std::io::Write;
 
 pub struct CodeGenerator<T: Write> {
     output: Box<T>,
-    scope: Scope,
     registers: [Option<Register>; 4],
 }
 
@@ -47,7 +45,6 @@ impl<T: Write> CodeGenerator<T> {
     {
         CodeGenerator {
             output: Box::new(output),
-            scope: Scope::new(),
             registers: [None; 4],
         }
     }
@@ -96,41 +93,29 @@ impl<T: Write> CodeGenerator<T> {
         }
     }
 
-    fn gen_declaration(&mut self, name: &str, primitive_type: PrimitiveType) {
-        if self.scope.get(name).is_some() {
-            panic!("Redeclaration of variable {}", name);
-        }
-
-        self.scope
-            .add(String::from(name), SymbolType::Variable, primitive_type);
-        println!("{:?}", self.scope);
+    fn gen_declaration(&mut self, _variable: &Symbol) {
+        //TODO: does something need to go here?
     }
 
-    fn gen_assignment(&mut self, name: &str, expression: &AstNode) {
+    fn gen_assignment(&mut self, variable: &Symbol, expression: &AstNode) {
         let reg = self.gen_expression(expression);
-
-        let scope_var: &Symbol = self
-            .scope
-            .get(name)
-            .unwrap_or_else(|| panic!("Unexpected identifier in assignment: {}", name));
 
         let expression_type = expression.get_primitive_type();
 
-        if !expression_type.is_compatible_with(&scope_var.primitive_type, true) {
+        if !expression_type.is_compatible_with(&variable.primitive_type, true) {
             panic!(
                 "Incompatible types in assignment, {:?} = {:?}",
-                expression_type, scope_var.primitive_type
+                expression_type, variable.primitive_type
             );
         }
 
-        let offset = scope_var.offset;
+        let index = Self::size_to_instruction_index(variable.primitive_type.get_size());
 
-        let index = Self::size_to_instruction_index(scope_var.primitive_type.get_size());
-
-        self.write(&format!("\tsubq\t${}, %rsp", offset));
+        //TODO: Move all subq calls to one big subq at the start of the scope
+        self.write(&format!("\tsubq\t${}, %rsp", variable.offset));
         self.write(&format!(
             "\t{}\t{}, -{}(%rbp)",
-            MOV_INSTR[index], REGISTERS[index][reg.index], offset
+            MOV_INSTR[index], REGISTERS[index][reg.index], variable.offset
         ));
 
         self.free_register(reg);
@@ -147,7 +132,10 @@ impl<T: Write> CodeGenerator<T> {
             "\t{}\t{}, {}",
             CMP_INSTR[index], REGISTERS[index][right_reg.index], REGISTERS[index][left_reg.index]
         ));
-        self.write(&format!("\t{}\t{}", comparison_type, REGISTERS[0][right_reg.index]));
+        self.write(&format!(
+            "\t{}\t{}",
+            comparison_type, REGISTERS[0][right_reg.index]
+        ));
         self.write(&format!(
             "\t{}\t$255, {}",
             AND_INSTR[index], REGISTERS[index][right_reg.index]
@@ -269,27 +257,40 @@ impl<T: Write> CodeGenerator<T> {
 
                 result_reg
             }
+            AstNode::Identifier(symbol) => {
+                let size = symbol.primitive_type.get_size();
+                let register = self.get_register(size);
+
+                let index = Self::size_to_instruction_index(size);
+
+                self.write(&format!(
+                    "\t{}\t-{}(%rbp), {}",
+                    MOV_INSTR[index], symbol.offset, REGISTERS[index][register.index],
+                ));
+
+                register
+            }
             _ => panic!("unsupported astnode in gen_expression"),
         }
     }
 
-    fn gen_functioncall(&mut self, name: &String, params: &Vec<String>) {
+    fn gen_functioncall(&mut self, name: &String, params: &Vec<AstNode>) {
         let mut index: usize = 0;
 
         assert!(params.len() <= PARAM_REGISTERS.len());
 
         for param in params {
-            let scope_var = self
-                .scope
-                .get(param)
-                .expect("Unknown identifier in function call");
-            let instr_index = Self::size_to_instruction_index(scope_var.primitive_type.get_size());
+            let instr_index =
+                Self::size_to_instruction_index(param.get_primitive_type().get_size());
+            let expression_reg = self.gen_expression(param);
 
-            //TODO: maybe make this movzx?
-            let var_offset = scope_var.offset;
+            //TODO: fix this
+            self.write(&format!("\txor\t\t{},{}", PARAM_REGISTERS[3][index], PARAM_REGISTERS[3][index]));
             self.write(&format!(
-                "\t{}\t-{}(%rbp), {}",
-                MOV_INSTR[instr_index], var_offset, PARAM_REGISTERS[instr_index][index]
+                "\t{}\t{}, {}",
+                MOV_INSTR[instr_index],
+                REGISTERS[instr_index][expression_reg.index],
+                PARAM_REGISTERS[instr_index][index]
             ));
             index += 1;
         }
@@ -300,10 +301,8 @@ impl<T: Write> CodeGenerator<T> {
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
-            AstNode::VariableDeclaration(name, primitive_type) => {
-                self.gen_declaration(name, *primitive_type)
-            }
-            AstNode::Assignment(name, expression) => self.gen_assignment(name, expression),
+            AstNode::VariableDeclaration(var) => self.gen_declaration(var),
+            AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
             _ => panic!("Trying to generate assembly for unsupported ast node!"),
         }

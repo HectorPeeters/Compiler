@@ -1,4 +1,5 @@
 use crate::types::*;
+use crate::scope::*;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BinaryOperationType {
@@ -23,11 +24,11 @@ pub enum AstNode {
     BinaryOperation(BinaryOperationType, Box<AstNode>, Box<AstNode>),
     //  UnaryOperation(UnaryOperationType, Box<AstNode>),
     NumericLiteral(PrimitiveType, PrimitiveValue),
-    VariableDeclaration(String, PrimitiveType),
-    Assignment(String, Box<AstNode>),
-    FunctionCall(String, Vec<String>),
+    VariableDeclaration(Symbol),
+    Assignment(Symbol, Box<AstNode>),
+    FunctionCall(String, Vec<AstNode>),
     Widen(PrimitiveType, Box<AstNode>),
-    //  Empty(),
+    Identifier(Symbol),
     Block(Vec<AstNode>),
 }
 
@@ -53,33 +54,31 @@ impl AstNode {
                     child.print(indentation + 2);
                 }
             }
-            AstNode::VariableDeclaration(name, primitive_type) => {
+            AstNode::VariableDeclaration(var) => {
                 println!(
                     "{}Var {}: {:?}",
                     " ".repeat(indentation),
-                    name,
-                    primitive_type
+                    var.name,
+                    var.primitive_type
                 );
             }
-            AstNode::Assignment(name, node) => {
-                println!("{}{} =", " ".repeat(indentation), name);
+            AstNode::Assignment(var, node) => {
+                println!("{}{} =", " ".repeat(indentation), var.name);
                 node.print(indentation + 2);
             }
             AstNode::FunctionCall(name, params) => {
-                print!("{}{}(", " ".repeat(indentation), name);
-                let mut i = 0;
+                println!("{}{}(", " ".repeat(indentation), name);
                 for param in params {
-                    print!("{}", param);
-                    if i != params.len() - 1 {
-                        print!(",");
-                    }
-                    i += 1;
+                    param.print(indentation + 2);
                 }
-                println!(")");
+                println!("{})", " ".repeat(indentation));
             }
             AstNode::Widen(primitive_type, node) => {
                 println!("{}Widen {:?}", " ".repeat(indentation), primitive_type);
                 node.print(indentation + 2);
+            }
+            AstNode::Identifier(var) => {
+                println!("{}{}", " ".repeat(indentation), var.name);
             }
         }
     }
@@ -106,7 +105,11 @@ impl AstNode {
             },
             AstNode::NumericLiteral(primitive_type, _) => *primitive_type,
             AstNode::Widen(primitive_type, _) => *primitive_type,
-            _ => PrimitiveType::Unknown,
+            AstNode::Identifier(symbol) => symbol.primitive_type,
+            _ => {
+                println!("WARNING: get_primitive_type called for unknown AstNode type!");
+                PrimitiveType::Unknown
+            },
         }
     }
 }
