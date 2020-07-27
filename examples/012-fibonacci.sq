@@ -1,0 +1,23 @@
+{
+    var x: u32;
+    var y: u32;
+    var fib: u32;
+    var loop: u32;
+
+    x = 0;
+    y = 1;
+    loop = 1;
+
+    print32(x);
+    print32(y);
+
+    while loop != 10 {
+        fib = x + y;
+        x = y;
+        y = fib;
+
+        print32(fib);
+
+        loop = loop + 1;
+    }
+}
