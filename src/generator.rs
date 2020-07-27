@@ -229,7 +229,18 @@ impl<T: Write> CodeGenerator<T> {
                     BinaryOperationType::NotEquals => {
                         self.gen_comparison(left_reg, right_reg, index, "setne")
                     }
-                    _ => panic!("Trying to generate binary operation type which isn't supported!"),
+                    BinaryOperationType::LessThan => {
+                        self.gen_comparison(left_reg, right_reg, index, "setl")
+                    }
+                    BinaryOperationType::LessThanOrEqual => {
+                        self.gen_comparison(left_reg, right_reg, index, "setle")
+                    }
+                    BinaryOperationType::GreaterThan => {
+                        self.gen_comparison(left_reg, right_reg, index, "setg")
+                    }
+                    BinaryOperationType::GreaterThanOrEqual => {
+                        self.gen_comparison(left_reg, right_reg, index, "setge")
+                    }
                 }
             }
             AstNode::NumericLiteral(primitive_type, value) => {

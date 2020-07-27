@@ -6,9 +6,10 @@ use crate::types::*;
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub enum OperatorPrecedence {
     //GreaterLessThan = 200,
-    EqualsNotEquals = 150,
-    MulDiv = 100,
-    AddSubtract = 50,
+    MulDiv = 200,
+    AddSubtract = 150,
+    LessGreaterThan = 100,
+    EqualsNotEquals = 50,
     Zero = 0,
 }
 
@@ -26,6 +27,10 @@ fn token_type_to_operator(token_type: TokenType) -> BinaryOperationType {
         TokenType::Slash => BinaryOperationType::Divide,
         TokenType::DoubleEqualSign => BinaryOperationType::Equals,
         TokenType::NotEqualSign => BinaryOperationType::NotEquals,
+        TokenType::LessThan => BinaryOperationType::LessThan,
+        TokenType::LessThanOrEqual => BinaryOperationType::LessThanOrEqual,
+        TokenType::GreaterThan => BinaryOperationType::GreaterThan,
+        TokenType::GreaterThanOrEqual => BinaryOperationType::GreaterThanOrEqual,
         _ => panic!(
             "Trying to convert a non operator token type to a binary operator type, {:?}",
             token_type
@@ -40,10 +45,10 @@ fn get_operator_precedence(operation_type: BinaryOperationType) -> OperatorPrece
         BinaryOperationType::Equals | BinaryOperationType::NotEquals => {
             OperatorPrecedence::EqualsNotEquals
         }
-        _ => panic!(
-            "Trying to convert a non operator token type to an operator precedence, {:?}",
-            operation_type
-        ),
+        BinaryOperationType::LessThan
+        | BinaryOperationType::LessThanOrEqual
+        | BinaryOperationType::GreaterThan
+        | BinaryOperationType::GreaterThanOrEqual => OperatorPrecedence::LessGreaterThan,
     }
 }
 

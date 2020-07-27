@@ -1,9 +1,10 @@
 {
-    var x: bool;
-
-    x = 1 == 2;
-    print8(x);
-
-    x = 1 != 1;
-    print8(x);
+    print8(1 == 2);
+    print8(1 != 1);
+    print8(1 < 1);
+    print8(2 < 1);
+    print8(2 <= 1);
+    print8(1 > 1);
+    print8(1 > 2);
+    print8(1 >= 2);
 }
