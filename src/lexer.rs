@@ -25,6 +25,7 @@ pub enum TokenType {
     Var,
     If,
     Else,
+    While,
     Type,
 
     DoubleEqualSign,
@@ -145,6 +146,7 @@ impl<'a> Lexer<'a> {
             "if" => Some(TokenType::If),
             "else" => Some(TokenType::Else),
             "var" => Some(TokenType::Var),
+            "while" => Some(TokenType::While),
             "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "bool" => {
                 Some(TokenType::Type)
             }

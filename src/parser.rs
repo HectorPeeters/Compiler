@@ -302,11 +302,25 @@ impl Parser {
         AstNode::If(Box::new(expression), Box::new(code), else_statement)
     }
 
+    fn parse_while(&mut self) -> AstNode {
+        self.assert_consume(TokenType::While);
+
+        let expression = self.parse_expression(OperatorPrecedence::Zero);
+        if expression.get_primitive_type() != PrimitiveType::Bool {
+            panic!("While statement condition should be a boolean expression");
+        }
+
+        let code = self.parse_block();
+
+        AstNode::While(Box::new(expression), Box::new(code))
+    }
+
     pub fn parse(&mut self) -> AstNode {
         let next_token: &Token = self.peek(0);
         match next_token.token_type {
             TokenType::LeftBrace => self.parse_block(),
             TokenType::If => self.parse_if(),
+            TokenType::While => self.parse_while(),
             TokenType::Var => self.parse_variable_declaration(),
             TokenType::Identifier => {
                 let next_token_type = self.peek(1).token_type;

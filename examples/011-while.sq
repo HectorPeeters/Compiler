@@ -1,0 +1,9 @@
+{
+    var x: u32;
+    x = 10;
+
+    while x != 0 {
+        print32(x);
+        x = x - 1;
+    }
+}

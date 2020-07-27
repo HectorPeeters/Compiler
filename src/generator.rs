@@ -349,6 +349,31 @@ impl<T: Write> CodeGenerator<T> {
         self.free_register(condition_reg);
     }
 
+    fn gen_while(&mut self, condition: &AstNode, code: &AstNode) {
+        let start_label = self.get_label();
+        let end_label = self.get_label();
+
+        self.write(&format!("L{}:", start_label));
+
+        let condition_reg = self.gen_expression(condition);
+
+        let instr_index = Self::size_to_instruction_index(condition_reg.size);
+
+        self.write(&format!(
+            "\t{}\t$0, {}",
+            CMP_INSTR[instr_index], REGISTERS[instr_index][condition_reg.index]
+        ));
+        self.write(&format!(
+            "\tjz\t\tL{}", end_label
+        ));
+        self.gen_node(code);
+
+        self.write(&format!("\tjmp\t\tL{}", start_label));
+        self.write(&format!("L{}:", end_label));
+
+        self.free_register(condition_reg);
+    }
+
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
@@ -356,6 +381,7 @@ impl<T: Write> CodeGenerator<T> {
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
             AstNode::If(condition, code, else_code) => self.gen_if(condition, code, else_code),
+            AstNode::While(condition, code) => self.gen_while(condition, code),
             _ => panic!("Trying to generate assembly for unsupported ast node!"),
         }
     }
