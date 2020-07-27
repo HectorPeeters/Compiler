@@ -2,16 +2,24 @@
     var x: u8;
     x = 255 + 1;
     print8(x);
+    x = 0;
+    print8(x - 1);
 
     var y: u16;
     y = 65535 + 1;
     print16(y);
+    y = 0;
+    print16(y - 1);
 
     var z: u32;
     z = 4294967295 + 1;
     print32(z);
+    z = 0;
+    print32(z - 1);
 
     var w: u64;
     w = 18446744073709551615 + 1;
     print64(w);
+    w = 0;
+    print64(w - 1);
 }

@@ -10,11 +10,11 @@ void print16(uint16_t x) {
 }
 
 void print32(uint32_t x) {
-    printf("%d\n", x);
+    printf("%u\n", x);
 }
 
 void print64(uint64_t x) {
-    printf("%ld\n", x);
+    printf("%lu\n", x);
 }
 
 void printsum(uint32_t x, uint32_t y) {

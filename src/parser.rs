@@ -224,12 +224,17 @@ impl Parser {
         let identifier_name = self.consume().value.clone();
         self.assert_consume(TokenType::EqualSign);
 
-        let expression = self.parse_expression(OperatorPrecedence::Zero);
+        let mut expression = self.parse_expression(OperatorPrecedence::Zero);
         self.consume();
 
         let scope_var = self
             .find_scope_var(&identifier_name)
             .expect("Unknown identifier");
+
+        if scope_var.primitive_type.get_size() > expression.get_primitive_type().get_size() {
+            expression = AstNode::Widen(scope_var.primitive_type, Box::new(expression));
+        }
+
         AstNode::Assignment(scope_var.clone(), Box::new(expression))
     }
 
