@@ -105,7 +105,7 @@ impl<T: Write> CodeGenerator<T> {
         if !expression_type.is_compatible_with(&variable.primitive_type, true) {
             panic!(
                 "Incompatible types in assignment, {:?} = {:?}",
-                expression_type, variable.primitive_type
+                variable.primitive_type, expression_type
             );
         }
 
@@ -279,6 +279,8 @@ impl<T: Write> CodeGenerator<T> {
 
         assert!(params.len() <= PARAM_REGISTERS.len());
 
+        let mut allocated_regs: Vec<Register> = Vec::new();
+
         for param in params {
             let instr_index =
                 Self::size_to_instruction_index(param.get_primitive_type().get_size());
@@ -292,7 +294,14 @@ impl<T: Write> CodeGenerator<T> {
                 REGISTERS[instr_index][expression_reg.index],
                 PARAM_REGISTERS[instr_index][index]
             ));
+
+            allocated_regs.push(expression_reg);
+
             index += 1;
+        }
+
+        for reg in allocated_regs {
+            self.free_register(reg);
         }
 
         self.write(&format!("\tcall\t{}", name));
@@ -323,5 +332,11 @@ impl<T: Write> CodeGenerator<T> {
         self.write("\tnop");
         self.write("\tleave");
         self.write("\tret");
+
+        for i in 0..self.registers.len() {
+            if self.registers[i].is_some() {
+                panic!("Not all registers were freed!");
+            }
+        }
     }
 }

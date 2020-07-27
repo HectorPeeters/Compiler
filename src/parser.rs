@@ -122,11 +122,11 @@ impl Parser {
                     .unwrap();
                 let mut primitive_type = PrimitiveType::UInt8;
 
-                if value > 2u64.pow(32) {
+                if value > 2u64.pow(32) - 1{
                     primitive_type = PrimitiveType::UInt64;
-                } else if value > 2u64.pow(16) {
+                } else if value > 2u64.pow(16) - 1 {
                     primitive_type = PrimitiveType::UInt32;
-                } else if value > 2u64.pow(8) {
+                } else if value > 2u64.pow(8) - 1 {
                     primitive_type = PrimitiveType::UInt16;
                 }
 

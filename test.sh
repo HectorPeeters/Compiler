@@ -6,6 +6,7 @@ if [ $COMPILE_RESULT -ne 0 ]; then
     exit 1
 fi
 
+echo -e "\nRunning tests..."
 for file in examples/*.sq
 do
     echo -n "Running $file..."
@@ -41,6 +42,21 @@ do
         echo -e "\n${bold}But got:${normal}"
         echo -e "$OUTPUT"
         exit 1
+    fi
+done
+
+echo -e "\nRunnig failing tests..."
+
+for file in examples/failing/*.sq
+do
+    echo -n "Runnig $file..."
+    cargo run $file > /dev/null 2>&1
+    CARGO_RESULT=$?
+    if [ $CARGO_RESULT -ne 0 ]; then
+        echo " ${bold}✓${normal}"
+    else
+        echo " ${bold}⨯${normal}"
+        exit 1 
     fi
 done
 
