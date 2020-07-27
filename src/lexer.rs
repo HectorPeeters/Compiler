@@ -24,6 +24,7 @@ pub enum TokenType {
     Comma,
     Var,
     If,
+    Else,
     Type,
 
     DoubleEqualSign,
@@ -142,6 +143,7 @@ impl<'a> Lexer<'a> {
     fn keyword_to_tokentype(keyword: &str) -> Option<TokenType> {
         match keyword {
             "if" => Some(TokenType::If),
+            "else" => Some(TokenType::Else),
             "var" => Some(TokenType::Var),
             "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "bool" => {
                 Some(TokenType::Type)

@@ -285,9 +285,16 @@ impl Parser {
             panic!("If statement should contain a boolean expression");
         }
 
-        let code = self.parse();
+        let code = self.parse_block();
 
-        AstNode::If(Box::new(expression), Box::new(code))
+        let mut else_statement: Option<Box<AstNode>> = None;
+
+        if self.peek(0).token_type == TokenType::Else {
+            self.assert_consume(TokenType::Else);
+            else_statement = Some(Box::new(self.parse_block()));
+        }
+
+        AstNode::If(Box::new(expression), Box::new(code), else_statement)
     }
 
     pub fn parse(&mut self) -> AstNode {

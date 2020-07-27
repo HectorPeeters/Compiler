@@ -295,7 +295,10 @@ impl<T: Write> CodeGenerator<T> {
             let expression_reg = self.gen_expression(param);
 
             //TODO: fix this
-            self.write(&format!("\txor\t\t{},{}", PARAM_REGISTERS[3][index], PARAM_REGISTERS[3][index]));
+            self.write(&format!(
+                "\txor\t\t{},{}",
+                PARAM_REGISTERS[3][index], PARAM_REGISTERS[3][index]
+            ));
             self.write(&format!(
                 "\t{}\t{}, {}",
                 MOV_INSTR[instr_index],
@@ -315,17 +318,33 @@ impl<T: Write> CodeGenerator<T> {
         self.write(&format!("\tcall\t{}", name));
     }
 
-    fn gen_if(&mut self, condition: &AstNode, code: &AstNode) {
+    fn gen_if(&mut self, condition: &AstNode, code: &AstNode, else_code: &Option<Box<AstNode>>) {
+        let has_else = else_code.is_some();
+
         let condition_reg = self.gen_expression(&condition);
 
-        let label = self.get_label();
+        let else_label = self.get_label();
+        let end_label = self.get_label();
 
         let instr_index = Self::size_to_instruction_index(condition_reg.size);
 
-        self.write(&format!("\t{}\t$0, {}", CMP_INSTR[instr_index], REGISTERS[instr_index][condition_reg.index]));
-        self.write(&format!("\tjz\t\tL{}", label));
+        self.write(&format!(
+            "\t{}\t$0, {}",
+            CMP_INSTR[instr_index], REGISTERS[instr_index][condition_reg.index]
+        ));
+        self.write(&format!(
+            "\tjz\t\tL{}",
+            if has_else { else_label } else { end_label }
+        ));
         self.gen_node(code);
-        self.write(&format!("L{}:", label));
+        self.write(&format!("\tjmp L{}", end_label));
+        if has_else {
+            self.write(&format!("L{}:", else_label));
+            if let Some(else_code) = else_code {
+                self.gen_node(else_code);
+            }
+        }
+        self.write(&format!("L{}:", end_label));
 
         self.free_register(condition_reg);
     }
@@ -336,7 +355,7 @@ impl<T: Write> CodeGenerator<T> {
             AstNode::VariableDeclaration(var) => self.gen_declaration(var),
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
-            AstNode::If(condition, code) => self.gen_if(condition, code),
+            AstNode::If(condition, code, else_code) => self.gen_if(condition, code, else_code),
             _ => panic!("Trying to generate assembly for unsupported ast node!"),
         }
     }

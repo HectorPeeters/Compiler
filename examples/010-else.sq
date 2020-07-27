@@ -1,0 +1,19 @@
+{
+    var x: u32;
+
+    x = 12;
+
+    if x == 12 {
+        print32(1);
+    } else {
+        print32(0);
+    }
+
+    x = 13;
+
+    if x == 12 {
+        print32(1);
+    } else {
+        print32(0);
+    }
+}
