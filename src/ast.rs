@@ -29,6 +29,7 @@ pub enum AstNode {
     FunctionCall(String, Vec<AstNode>),
     Widen(PrimitiveType, Box<AstNode>),
     Identifier(Symbol),
+    Function(Symbol, Box<AstNode>),
     If(Box<AstNode>, Box<AstNode>, Option<Box<AstNode>>),
     While(Box<AstNode>, Box<AstNode>),
     Block(Vec<AstNode>),
@@ -100,6 +101,10 @@ impl AstNode {
                 println!("{}){{", " ".repeat(indentation));
                 code.print(indentation + 2);
                 println!("{}}}", " ".repeat(indentation));
+            }
+            AstNode::Function(symbol, code) => {
+                println!("{}Fn {}", " ".repeat(indentation), symbol.name);
+                code.print(indentation + 2);
             }
         }
     }

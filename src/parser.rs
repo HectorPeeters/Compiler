@@ -5,7 +5,6 @@ use crate::types::*;
 
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub enum OperatorPrecedence {
-    //GreaterLessThan = 200,
     MulDiv = 200,
     AddSubtract = 150,
     LessGreaterThan = 100,
@@ -57,7 +56,7 @@ impl Parser {
         Parser {
             tokens,
             index: 0,
-            scope: vec![Scope::new()],
+            scope: vec![],
         }
     }
 
@@ -252,6 +251,10 @@ impl Parser {
 
         //TODO: check parameter types
         loop {
+            if self.peek(0).token_type == TokenType::RightParen {
+                break;
+            }
+
             let expression = self.parse_expression(OperatorPrecedence::Zero);
             params.push(expression);
 
@@ -273,14 +276,14 @@ impl Parser {
 
         let mut children: Vec<AstNode> = vec![];
 
-        self.consume();
+        self.assert_consume(TokenType::LeftBrace);
 
         while self.peek(0).token_type != TokenType::RightBrace {
-            let node = self.parse();
+            let node = self.parse_single();
             children.push(node);
         }
 
-        self.consume();
+        self.assert_consume(TokenType::RightBrace);
 
         self.scope.pop();
 
@@ -320,13 +323,48 @@ impl Parser {
         AstNode::While(Box::new(expression), Box::new(code))
     }
 
-    pub fn parse(&mut self) -> AstNode {
+    fn parse_function(&mut self) -> AstNode {
+        self.assert_consume(TokenType::Function);
+        let function_name = self.assert_consume(TokenType::Identifier).value.clone();
+        self.assert_consume(TokenType::LeftParen);
+
+        loop {
+            if self.peek(0).token_type == TokenType::RightParen {
+                break;
+            }
+
+            let param_name = &self.assert_consume(TokenType::Identifier);
+            self.assert_consume(TokenType::Colon);
+            let param_type = self.parse_variable_type();
+
+            if self.peek(0).token_type == TokenType::RightParen {
+                break;
+            } else {
+                self.assert_consume(TokenType::Comma);
+            }
+        }
+
+        self.assert_consume(TokenType::RightParen);
+        let code = self.parse_block();
+
+        let symbol = Symbol {
+            name: function_name,
+            offset: 0,
+            primitive_type: PrimitiveType::Void,
+            symbol_type: SymbolType::Function,
+        };
+
+        AstNode::Function(symbol, Box::new(code))
+    }
+
+    fn parse_single(&mut self) -> AstNode {
         let next_token: &Token = self.peek(0);
         match next_token.token_type {
             TokenType::LeftBrace => self.parse_block(),
             TokenType::If => self.parse_if(),
             TokenType::While => self.parse_while(),
             TokenType::Var => self.parse_variable_declaration(),
+            TokenType::Function => self.parse_function(),
             TokenType::Identifier => {
                 let next_token_type = self.peek(1).token_type;
                 match next_token_type {
@@ -337,5 +375,15 @@ impl Parser {
             }
             _ => panic!("Unexpected token: {:?}", next_token),
         }
+    }
+
+    pub fn parse(&mut self) -> AstNode {
+        let mut nodes: Vec<AstNode> = Vec::new();
+
+        while !self.eof() {
+            nodes.push(self.parse_single());
+        }
+
+        AstNode::Block(nodes)
     }
 }

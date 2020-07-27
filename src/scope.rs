@@ -1,10 +1,10 @@
 use crate::types::*;
 use std::collections::HashMap;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SymbolType {
     Variable,
-    //    Function,
+    Function,
 }
 
 #[derive(Debug, Clone)]

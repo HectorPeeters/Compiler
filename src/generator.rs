@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::scope::*;
+use crate::types::*;
 
 use std::io::Write;
 
@@ -99,10 +100,6 @@ impl<T: Write> CodeGenerator<T> {
         let result = self.label_index;
         self.label_index += 1;
         result
-    }
-
-    fn gen_declaration(&mut self, _variable: &Symbol) {
-        //TODO: does something need to go here?
     }
 
     fn gen_assignment(&mut self, variable: &Symbol, expression: &AstNode) {
@@ -385,33 +382,38 @@ impl<T: Write> CodeGenerator<T> {
         self.free_register(condition_reg);
     }
 
+    fn gen_function(&mut self, symbol: &Symbol, code: &AstNode) {
+        assert!(symbol.symbol_type == SymbolType::Function);
+
+        self.write(&format!("{}:", symbol.name));
+        self.write("\tpush\t%rbp");
+        self.write("\tmov\t\t%rsp, %rbp");
+        self.gen_node(code);
+        self.write("\tmov\t\t%rbp, %rsp");
+        self.write("\tpop\t\t%rbp");
+
+        assert!(symbol.primitive_type == PrimitiveType::Void);
+        self.write("\tret");
+    }
+
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
-            AstNode::VariableDeclaration(var) => self.gen_declaration(var),
+            AstNode::VariableDeclaration(_) => {},
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
             AstNode::If(condition, code, else_code) => self.gen_if(condition, code, else_code),
             AstNode::While(condition, code) => self.gen_while(condition, code),
+            AstNode::Function(symbol, code) => self.gen_function(symbol, code),
             _ => panic!("Trying to generate assembly for unsupported ast node!"),
         }
     }
 
     pub fn gen(&mut self, node: &AstNode) {
-        self.write(".LC0:");
-        self.write("\t.string \"%d\\n\"");
-        self.write("\t.text");
         self.write("\t.globl\tmain");
         self.write("\t.type\tmain, @function");
-        self.write("main:");
-        self.write("\tpush\t%rbp");
-        self.write("\tmov\t\t%rsp, %rbp");
 
         self.gen_node(node);
-
-        self.write("\tnop");
-        self.write("\tleave");
-        self.write("\tret");
 
         for i in 0..self.registers.len() {
             if self.registers[i].is_some() {

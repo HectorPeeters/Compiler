@@ -1,4 +1,4 @@
-{
+fn main() {
     var x: u32;
     x = 10;
 

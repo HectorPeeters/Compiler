@@ -1,4 +1,4 @@
-{
+fn main() {
     print8(1 == 1);
     print8(1 != 2);
     print8(1 < 2);

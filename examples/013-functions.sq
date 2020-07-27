@@ -1,0 +1,9 @@
+fn test() {
+    print8(2);
+}
+
+fn main() {
+    print8(1);
+    test();
+    print8(3);
+}

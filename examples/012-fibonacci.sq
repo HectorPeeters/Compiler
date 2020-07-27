@@ -1,4 +1,4 @@
-{
+fn main() {
     var x: u32;
     var y: u32;
     var fib: u32;

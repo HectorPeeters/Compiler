@@ -12,6 +12,7 @@ pub enum PrimitiveType {
     UInt64,
     Bool,
     Unknown,
+    Void,
 }
 
 impl PrimitiveType {
