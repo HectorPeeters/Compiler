@@ -78,6 +78,14 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn error(&self, message: &str) {
+        eprintln!(
+            "Lexer error at line {}:{}\n{}",
+            self.current_line, self.current_col, message
+        );
+        panic!();
+    }
+
     fn eof(&mut self) -> bool {
         self.index >= self.data.len()
     }
@@ -108,7 +116,7 @@ impl<'a> Lexer<'a> {
             }
 
             let c = self.peek(0);
-            if !f(c.as_str()) {
+            if !f(&c) {
                 break;
             }
 
@@ -160,7 +168,7 @@ impl<'a> Lexer<'a> {
         let value = self.consume_while(|c| is_alphabetic(c) || is_numeric(c));
 
         let token_type =
-            Self::keyword_to_tokentype(value.as_str()).unwrap_or(TokenType::Identifier);
+            Self::keyword_to_tokentype(&value).unwrap_or(TokenType::Identifier);
 
         Token {
             line: self.current_line,
@@ -245,9 +253,7 @@ impl<'a> Lexer<'a> {
 
             match token {
                 Some(x) => result.push(x),
-                None => {
-                    panic!("Error while tokenizing {}", current_char);
-                }
+                None => self.error(&format!("Unexpected character: {}", current_char)),
             }
         }
         result

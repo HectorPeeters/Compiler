@@ -60,16 +60,24 @@ impl Parser {
         }
     }
 
+    fn error(&self, message: &str) {
+        eprintln!(
+            "Parser error at line {}:{}\n{}",
+            self.tokens[self.index].line, self.tokens[self.index].col, message
+        );
+        panic!();
+    }
+
     fn peek(&self, index: usize) -> &Token {
         if self.index + index >= self.tokens.len() {
-            panic!("Reached end of tokenstream while peeking!");
+            self.error("Reached end of tokenstream while peeking!");
         }
         &self.tokens[self.index + index]
     }
 
     fn consume(&mut self) -> &Token {
         if self.eof() {
-            panic!("Reached end of tokenstream while consuming!");
+            self.error("Reached end of tokenstream while consuming!");
         }
         let result = &self.tokens[self.index];
         self.index += 1;
@@ -78,14 +86,14 @@ impl Parser {
     }
 
     fn assert_consume(&mut self, token_type: TokenType) -> &Token {
-        let token = self.consume();
-        assert!(
-            token.token_type == token_type,
-            "{:?} == {:?}",
-            token.token_type,
-            token_type
-        );
-        token
+        let token = self.peek(0);
+        if token.token_type != token_type {
+            self.error(&format!(
+                "Assert consume failed: {:?} != {:?}",
+                token.token_type, token_type
+            ));
+        }
+        self.consume()
     }
 
     fn eof(&self) -> bool {
@@ -108,7 +116,9 @@ impl Parser {
             && current_token.token_type != TokenType::LeftParen
             && current_token.token_type != TokenType::Identifier
         {
-            panic!("parse_unary_expression expects IntLiteral, LeftParen or Identifier token type");
+            self.error(
+                "parse_unary_expression expects IntLiteral, LeftParen or Identifier token type",
+            );
         }
 
         match current_token.token_type {
@@ -140,7 +150,7 @@ impl Parser {
                 let identifier = self.assert_consume(TokenType::Identifier).value.clone();
                 let scope_var = self
                     .find_scope_var(&identifier)
-                    .expect("Undefined identifier!");
+                    .expect(&format!("Unknown identifier {}", identifier));
                 AstNode::Identifier(scope_var.clone())
             }
             _ => unreachable!(),
@@ -179,7 +189,7 @@ impl Parser {
                 .get_primitive_type()
                 .is_compatible_with(&right.get_primitive_type(), false)
             {
-                panic!("Incompatible types in expression");
+                self.error("Incompatible types in expression");
             }
 
             if left.get_primitive_type().get_size() > right.get_primitive_type().get_size() {
@@ -208,7 +218,7 @@ impl Parser {
         type_token
             .value
             .parse::<PrimitiveType>()
-            .unwrap_or_else(|_| panic!("Unknown primitive type: {}", type_token.value))
+            .expect(&format!("Unknown primitive type: {}", type_token.value))
     }
 
     fn parse_variable_declaration(&mut self) -> AstNode {
@@ -218,7 +228,7 @@ impl Parser {
         let primitive_type = self.parse_variable_type();
         self.assert_consume(TokenType::SemiColon);
 
-        let scope: &mut Scope = self.scope.last_mut().expect("No scope in scope stack");
+        let scope: &mut Scope = self.scope.last_mut().expect("Scope stack is empty!");
         let symbol = scope.add(&name, SymbolType::Variable, primitive_type);
 
         AstNode::VariableDeclaration(symbol.clone())
@@ -233,7 +243,7 @@ impl Parser {
 
         let scope_var = self
             .find_scope_var(&identifier_name)
-            .expect("Unknown identifier");
+            .expect(&format!("Unknown identifier: {}", identifier_name));
 
         if scope_var.primitive_type.get_size() > expression.get_primitive_type().get_size() {
             expression = AstNode::Widen(scope_var.primitive_type, Box::new(expression));
@@ -295,7 +305,7 @@ impl Parser {
 
         let expression = self.parse_expression(OperatorPrecedence::Zero);
         if expression.get_primitive_type() != PrimitiveType::Bool {
-            panic!("If statement should contain a boolean expression");
+            self.error("If statement should contain a boolean expression");
         }
 
         let code = self.parse_block();
@@ -315,7 +325,7 @@ impl Parser {
 
         let expression = self.parse_expression(OperatorPrecedence::Zero);
         if expression.get_primitive_type() != PrimitiveType::Bool {
-            panic!("While statement condition should be a boolean expression");
+            self.error("While statement condition should be a boolean expression");
         }
 
         let code = self.parse_block();
@@ -370,10 +380,19 @@ impl Parser {
                 match next_token_type {
                     TokenType::LeftParen => self.parse_functioncall(),
                     TokenType::EqualSign => self.parse_assignment(),
-                    _ => panic!("Unexpected token {:?} after identifier", next_token_type),
+                    _ => {
+                        self.error(&format!(
+                            "Unexpected token {:?} after identifier",
+                            next_token_type
+                        ));
+                        unreachable!();
+                    }
                 }
             }
-            _ => panic!("Unexpected token: {:?}", next_token),
+            _ => {
+                self.error(&format!("Unexpected token: {:?}", next_token));
+                unreachable!();
+            }
         }
     }
 

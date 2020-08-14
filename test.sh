@@ -6,7 +6,7 @@ if [ $COMPILE_RESULT -ne 0 ]; then
     exit 1
 fi
 
-echo -e "\nRunning tests..."
+echo "\nRunning tests..."
 for file in examples/*.sq
 do
     echo -n "Running $file..."
@@ -45,7 +45,7 @@ do
     fi
 done
 
-echo -e "\nRunnig failing tests..."
+echo "\nRunnig failing tests..."
 
 for file in examples/failing/*.sq
 do

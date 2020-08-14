@@ -51,6 +51,10 @@ impl<T: Write> CodeGenerator<T> {
             label_index: 0,
         }
     }
+    fn error(&self, message: &str) {
+        eprintln!("Generator error: {}", message);
+        panic!();
+    }
 
     fn size_to_instruction_index(size: i32) -> usize {
         match size {
@@ -80,12 +84,13 @@ impl<T: Write> CodeGenerator<T> {
             }
         }
 
-        panic!("Out of registers!");
+        self.error("Out of registers!");
+        unreachable!();
     }
 
     fn free_register(&mut self, reg: Register) {
         if !self.registers[reg.index].is_some() {
-            panic!("Trying to free a register which is already free!");
+            self.error("Trying to free a register which is already freed!");
         }
         self.registers[reg.index] = None;
     }
@@ -108,10 +113,10 @@ impl<T: Write> CodeGenerator<T> {
         let expression_type = expression.get_primitive_type();
 
         if !expression_type.is_compatible_with(&variable.primitive_type, true) {
-            panic!(
+            self.error(&format!(
                 "Incompatible types in assignment, {:?} = {:?}",
                 variable.primitive_type, expression_type
-            );
+            ));
         }
 
         let index = Self::size_to_instruction_index(variable.primitive_type.get_size());
@@ -286,7 +291,10 @@ impl<T: Write> CodeGenerator<T> {
 
                 register
             }
-            _ => panic!("unsupported astnode in gen_expression"),
+            _ => {
+                self.error(&format!("unsupported astnode in gen_expression"));
+                unreachable!();
+            }
         }
     }
 
@@ -371,9 +379,7 @@ impl<T: Write> CodeGenerator<T> {
             "\t{}\t$0, {}",
             CMP_INSTR[instr_index], REGISTERS[instr_index][condition_reg.index]
         ));
-        self.write(&format!(
-            "\tjz\t\tL{}", end_label
-        ));
+        self.write(&format!("\tjz\t\tL{}", end_label));
         self.gen_node(code);
 
         self.write(&format!("\tjmp\t\tL{}", start_label));
@@ -399,13 +405,16 @@ impl<T: Write> CodeGenerator<T> {
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
-            AstNode::VariableDeclaration(_) => {},
+            AstNode::VariableDeclaration(_) => {}
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
             AstNode::If(condition, code, else_code) => self.gen_if(condition, code, else_code),
             AstNode::While(condition, code) => self.gen_while(condition, code),
             AstNode::Function(symbol, code) => self.gen_function(symbol, code),
-            _ => panic!("Trying to generate assembly for unsupported ast node!"),
+            _ => {
+                self.error("Trying to generate assembly for unsupported ast node!");
+                unreachable!();
+            }
         }
     }
 
@@ -417,7 +426,7 @@ impl<T: Write> CodeGenerator<T> {
 
         for i in 0..self.registers.len() {
             if self.registers[i].is_some() {
-                panic!("Not all registers were freed!");
+                self.error("Not all registers were freed!");
             }
         }
     }
