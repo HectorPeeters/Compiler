@@ -281,13 +281,25 @@ impl<T: Write> CodeGenerator<T> {
             AstNode::Identifier(symbol) => {
                 let size = symbol.primitive_type.get_size();
                 let register = self.get_register(size);
-
                 let index = Self::size_to_instruction_index(size);
 
-                self.write(&format!(
-                    "\t{}\t-{}(%rbp), {}",
-                    MOV_INSTR[index], symbol.offset, REGISTERS[index][register.index],
-                ));
+                match symbol.symbol_type {
+                    SymbolType::Variable => {
+                        self.write(&format!(
+                            "\t{}\t-{}(%rbp), {}",
+                            MOV_INSTR[index], symbol.offset, REGISTERS[index][register.index],
+                        ));
+                    }
+                    SymbolType::FunctionParameter => {
+                        self.write(&format!(
+                            "\t{}\t{}, {}",
+                            MOV_INSTR[index], PARAM_REGISTERS[index][symbol.offset as usize], REGISTERS[index][register.index],
+                        ));
+                    }
+                    _ => {
+                        self.error("Trying to generate from function symbol ast node");
+                    }
+                }
 
                 register
             }
@@ -405,7 +417,7 @@ impl<T: Write> CodeGenerator<T> {
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
-            AstNode::VariableDeclaration(_) => {}
+            AstNode::VariableDeclaration(_) => {},
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
             AstNode::If(condition, code, else_code) => self.gen_if(condition, code, else_code),

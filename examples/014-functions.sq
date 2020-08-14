@@ -1,0 +1,9 @@
+fn print(value: u32) {
+    print32(value + 2);
+}
+
+fn main() {
+    print(1);
+    print(2);
+    print(3);
+}

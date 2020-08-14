@@ -63,37 +63,41 @@ impl Parser {
     }
 
     fn setup_libc(&mut self) {
-        let scope: &mut Scope = self.scope.last_mut().expect("Scope stack is empty!");
-
-        scope.add_function(
+        self.add_to_scope(
             &"printbool".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::Bool],
+            SymbolType::Function
         );
-        scope.add_function(
+        self.add_to_scope(
             &"print8".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt8],
+            SymbolType::Function
         );
-        scope.add_function(
+        self.add_to_scope(
             &"print16".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt16],
+            SymbolType::Function
         );
-        scope.add_function(
+        self.add_to_scope(
             &"print32".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt32],
+            SymbolType::Function
         );
-        scope.add_function(
+        self.add_to_scope(
             &"print64".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt64],
+            SymbolType::Function
         );
-        scope.add_function(
+        self.add_to_scope(
             &"printsum".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt32, PrimitiveType::UInt32],
+            SymbolType::Function
         );
     }
 
@@ -145,6 +149,16 @@ impl Parser {
         }
 
         None
+    }
+
+    fn add_to_scope(&mut self,  name: &String, primitive_type: PrimitiveType, parameter_types: Vec<PrimitiveType>, symbol_type: SymbolType) -> Symbol {
+        let scope_count = self.scope.len();
+        self.scope[scope_count - 1].add(name, primitive_type, parameter_types, symbol_type)
+    }
+
+    fn add_to_scope_with_offset(&mut self,  name: &String, primitive_type: PrimitiveType, parameter_types: Vec<PrimitiveType>, symbol_type: SymbolType, offset: i32) -> Symbol {
+        let scope_count = self.scope.len();
+        self.scope[scope_count - 1].add_with_offset(name, primitive_type, parameter_types, symbol_type, offset)
     }
 
     fn parse_unary_expression(&mut self) -> AstNode {
@@ -265,8 +279,7 @@ impl Parser {
         let primitive_type = self.parse_variable_type();
         self.assert_consume(TokenType::SemiColon);
 
-        let scope: &mut Scope = self.scope.last_mut().expect("Scope stack is empty!");
-        let symbol = scope.add_variable(&name, primitive_type);
+        let symbol = self.add_to_scope(&name, primitive_type, Vec::new(), SymbolType::Variable);
 
         AstNode::VariableDeclaration(symbol.clone())
     }
@@ -383,22 +396,26 @@ impl Parser {
         AstNode::While(Box::new(expression), Box::new(code))
     }
 
-    fn parse_function(&mut self) -> AstNode {
-        self.assert_consume(TokenType::Function);
-        let function_name = self.assert_consume(TokenType::Identifier).value.clone();
-        self.assert_consume(TokenType::LeftParen);
-
+    fn parse_parameter_list(&mut self) -> Vec<PrimitiveType> {
         let mut parameter_types: Vec<PrimitiveType> = Vec::new();
+
+        let mut param_index = 0;
 
         loop {
             if self.peek(0).token_type == TokenType::RightParen {
                 break;
             }
 
-            let _param_name = &self.assert_consume(TokenType::Identifier);
+            //TODO: try and remove this clone
+            let param_name = &self.assert_consume(TokenType::Identifier).value.clone();
             self.assert_consume(TokenType::Colon);
-            let param_type = self.parse_variable_type();
+            let param_type = self.parse_variable_type().clone();
+
             parameter_types.push(param_type);
+
+            self.add_to_scope_with_offset(&param_name, param_type, Vec::new(), SymbolType::FunctionParameter, param_index);
+
+            param_index += 1;
 
             if self.peek(0).token_type == TokenType::RightParen {
                 break;
@@ -407,11 +424,20 @@ impl Parser {
             }
         }
 
+        parameter_types
+    }
+
+    fn parse_function(&mut self) -> AstNode {
+        self.assert_consume(TokenType::Function);
+        let function_name = self.assert_consume(TokenType::Identifier).value.clone();
+        self.assert_consume(TokenType::LeftParen);
+
+        let parameter_types = self.parse_parameter_list();
+        
         self.assert_consume(TokenType::RightParen);
         let code = self.parse_block();
 
-        let scope: &mut Scope = self.scope.last_mut().expect("Scope stack is empty!");
-        let symbol = scope.add_function(&function_name, PrimitiveType::Void, parameter_types);
+        let symbol = self.add_to_scope(&function_name, PrimitiveType::Void, parameter_types, SymbolType::Function);
         AstNode::Function(symbol, Box::new(code))
     }
 

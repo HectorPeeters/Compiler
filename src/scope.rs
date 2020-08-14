@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub enum SymbolType {
     Variable,
     Function,
+    FunctionParameter
 }
 
 #[derive(Debug, Clone)]
@@ -35,17 +36,19 @@ impl Scope {
         self.symbols.get(name)
     }
 
-    pub fn add_variable(
+    pub fn add(
         &mut self,
         name: &String,
         primitive_type: PrimitiveType,
-    ) -> Symbol {
+        parameter_types: Vec<PrimitiveType>,
+        symbol_type: SymbolType,
+    ) -> Symbol {        
         self.last_offset += primitive_type.get_size() as i32 / 8;
 
         let symbol = Symbol {
-            symbol_type: SymbolType::Variable,
+            symbol_type,
             primitive_type,
-            parameter_types: Vec::new(),
+            parameter_types,
             name: name.clone(),
             offset: self.last_offset,
         };
@@ -54,18 +57,22 @@ impl Scope {
         symbol
     }
 
-    pub fn add_function(
+    pub fn add_with_offset(
         &mut self,
         name: &String,
-        return_type: PrimitiveType,
-        parameter_types: Vec<PrimitiveType>
-    ) -> Symbol {
+        primitive_type: PrimitiveType,
+        parameter_types: Vec<PrimitiveType>,
+        symbol_type: SymbolType,
+        offset: i32,
+    ) -> Symbol {        
+        self.last_offset += primitive_type.get_size() as i32 / 8;
+
         let symbol = Symbol {
-            symbol_type: SymbolType::Function,
-            primitive_type: return_type,
-            parameter_types: parameter_types,
+            symbol_type,
+            primitive_type,
+            parameter_types,
             name: name.clone(),
-            offset: self.last_offset,
+            offset
         };
         self.symbols.insert(name.clone(), symbol.clone());
 
