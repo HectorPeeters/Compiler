@@ -206,6 +206,10 @@ impl<'a> Lexer<'a> {
         while !self.eof() {
             self.skip_whitespace();
 
+            if self.eof() {
+                break;
+            }
+
             while self.peek(0) == "#" {
                 self.consume_while(|c| !is_newline(c));
                 self.consume();
