@@ -1,6 +1,10 @@
 #include "stdio.h"
 #include "stdint.h"
 
+void printbool(uint8_t x) {
+    printf("%d\n", x);
+}
+
 void print8(uint8_t x) {
     printf("%d\n", x);
 }

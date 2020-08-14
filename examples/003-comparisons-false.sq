@@ -1,10 +1,10 @@
 fn main() {
-    print8(1 == 2);
-    print8(1 != 1);
-    print8(1 < 1);
-    print8(2 < 1);
-    print8(2 <= 1);
-    print8(1 > 1);
-    print8(1 > 2);
-    print8(1 >= 2);
+    printbool(1 == 2);
+    printbool(1 != 1);
+    printbool(1 < 1);
+    printbool(2 < 1);
+    printbool(2 <= 1);
+    printbool(1 > 1);
+    printbool(1 > 2);
+    printbool(1 >= 2);
 }

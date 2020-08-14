@@ -66,6 +66,11 @@ impl Parser {
         let scope: &mut Scope = self.scope.last_mut().expect("Scope stack is empty!");
 
         scope.add_function(
+            &"printbool".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::Bool],
+        );
+        scope.add_function(
             &"print8".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt8],
@@ -287,21 +292,31 @@ impl Parser {
     fn parse_functioncall(&mut self) -> AstNode {
         let function_name = self.assert_consume(TokenType::Identifier).value.clone();
 
-        self.find_scope_var(&function_name)
-            .expect(&format!("Unknown function: {}", function_name));
-
         self.assert_consume(TokenType::LeftParen);
+
+        //TODO: fix this clone mess
+        let symbol = self
+            .find_scope_var(&function_name)
+            .expect(&format!("Unknown function: {}", function_name)).clone();
 
         let mut params: Vec<AstNode> = Vec::new();
 
-        //TODO: check parameter types
+        let mut param_index: usize = 0;
+
         loop {
             if self.peek(0).token_type == TokenType::RightParen {
                 break;
             }
 
             let expression = self.parse_expression(OperatorPrecedence::Zero);
+
+            let expression_type = expression.get_primitive_type();
+            if !expression_type.is_compatible_with(&symbol.parameter_types[param_index], true) {
+                self.error("Incompatible types in function call");
+            }
+
             params.push(expression);
+            param_index += 1;
 
             if self.peek(0).token_type == TokenType::RightParen {
                 break;

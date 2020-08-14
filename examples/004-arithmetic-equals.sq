@@ -1,5 +1,5 @@
 fn main() {
     var x: bool;
     x = 3 * 2 == 3 + 3;
-    print8(x);
+    printbool(x);
 }
