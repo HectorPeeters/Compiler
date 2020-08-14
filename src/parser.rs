@@ -53,11 +53,43 @@ fn get_operator_precedence(operation_type: BinaryOperationType) -> OperatorPrece
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Parser {
+        let mut parser = Parser {
             tokens,
             index: 0,
-            scope: vec![],
-        }
+            scope: vec![Scope::new()],
+        };
+        parser.setup_libc();
+        parser
+    }
+
+    fn setup_libc(&mut self) {
+        let scope: &mut Scope = self.scope.last_mut().expect("Scope stack is empty!");
+
+        scope.add_function(
+            &"print8".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt8],
+        );
+        scope.add_function(
+            &"print16".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt16],
+        );
+        scope.add_function(
+            &"print32".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt32],
+        );
+        scope.add_function(
+            &"print64".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt64],
+        );
+        scope.add_function(
+            &"printsum".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt32, PrimitiveType::UInt32],
+        );
     }
 
     fn error(&self, message: &str) {
@@ -229,7 +261,7 @@ impl Parser {
         self.assert_consume(TokenType::SemiColon);
 
         let scope: &mut Scope = self.scope.last_mut().expect("Scope stack is empty!");
-        let symbol = scope.add(&name, SymbolType::Variable, primitive_type);
+        let symbol = scope.add_variable(&name, primitive_type);
 
         AstNode::VariableDeclaration(symbol.clone())
     }
@@ -253,7 +285,10 @@ impl Parser {
     }
 
     fn parse_functioncall(&mut self) -> AstNode {
-        let name = self.assert_consume(TokenType::Identifier).value.clone();
+        let function_name = self.assert_consume(TokenType::Identifier).value.clone();
+
+        self.find_scope_var(&function_name)
+            .expect(&format!("Unknown function: {}", function_name));
 
         self.assert_consume(TokenType::LeftParen);
 
@@ -278,7 +313,7 @@ impl Parser {
         self.assert_consume(TokenType::RightParen);
         self.assert_consume(TokenType::SemiColon);
 
-        AstNode::FunctionCall(name, params)
+        AstNode::FunctionCall(function_name, params)
     }
 
     fn parse_block(&mut self) -> AstNode {
@@ -338,14 +373,17 @@ impl Parser {
         let function_name = self.assert_consume(TokenType::Identifier).value.clone();
         self.assert_consume(TokenType::LeftParen);
 
+        let mut parameter_types: Vec<PrimitiveType> = Vec::new();
+
         loop {
             if self.peek(0).token_type == TokenType::RightParen {
                 break;
             }
 
-            let param_name = &self.assert_consume(TokenType::Identifier);
+            let _param_name = &self.assert_consume(TokenType::Identifier);
             self.assert_consume(TokenType::Colon);
             let param_type = self.parse_variable_type();
+            parameter_types.push(param_type);
 
             if self.peek(0).token_type == TokenType::RightParen {
                 break;
@@ -357,13 +395,8 @@ impl Parser {
         self.assert_consume(TokenType::RightParen);
         let code = self.parse_block();
 
-        let symbol = Symbol {
-            name: function_name,
-            offset: 0,
-            primitive_type: PrimitiveType::Void,
-            symbol_type: SymbolType::Function,
-        };
-
+        let scope: &mut Scope = self.scope.last_mut().expect("Scope stack is empty!");
+        let symbol = scope.add_function(&function_name, PrimitiveType::Void, parameter_types);
         AstNode::Function(symbol, Box::new(code))
     }
 
