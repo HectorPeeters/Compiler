@@ -6,6 +6,9 @@ if [ $COMPILE_RESULT -ne 0 ]; then
     exit 1
 fi
 
+echo "\nBuilding lib..."
+gcc -c -o lib.o lib.c
+
 echo "\nRunning tests..."
 for file in examples/*.sq
 do
@@ -18,7 +21,7 @@ do
         exit 1
     fi
 
-    gcc lib.c output.s
+    gcc lib.o output.s
     GCC_RESULT=$?
     if [ $GCC_RESULT -ne 0 ]; then
         echo
@@ -60,4 +63,4 @@ do
     fi
 done
 
-rm output.s a.out
+rm output.s a.out lib.o

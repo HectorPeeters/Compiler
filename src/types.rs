@@ -60,23 +60,35 @@ impl PrimitiveType {
             return false;
         }
 
-        if self.is_signed() && dest_type.is_unsigned() {
-            return false;
-        }
 
+        //TODO: this might need to be expanded
         if !one_sided {
             if *self != PrimitiveType::Bool && *dest_type == PrimitiveType::Bool {
                 return false;
             }
 
-            if self.is_unsigned() && dest_type.is_signed() {
-                return false;
-            }
+            //if self.is_unsigned() && dest_type.is_signed() {
+            //    return false;
+            //}
 
             return true;
         }
 
-        dest_type.get_size() > self.get_size()
+        dest_type.get_size() >= self.get_size()
+    }
+
+    pub fn switch_sign(&self) -> PrimitiveType {
+        match self {
+            PrimitiveType::UInt8 => PrimitiveType::Int8,
+            PrimitiveType::UInt16 => PrimitiveType::Int16,
+            PrimitiveType::UInt32 => PrimitiveType::Int32,
+            PrimitiveType::UInt64 => PrimitiveType::Int64,
+            PrimitiveType::Int8 => PrimitiveType::UInt8,
+            PrimitiveType::Int16 => PrimitiveType::UInt16,
+            PrimitiveType::Int32 => PrimitiveType::UInt32,
+            PrimitiveType::Int64 => PrimitiveType::UInt64,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -113,4 +125,3 @@ pub union PrimitiveValue {
     pub float32: f32,
     pub float64: f64,
 }
-

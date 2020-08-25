@@ -1,5 +1,5 @@
-use crate::types::*;
 use crate::scope::*;
+use crate::types::*;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BinaryOperationType {
@@ -15,14 +15,14 @@ pub enum BinaryOperationType {
     GreaterThanOrEqual,
 }
 
-//#[derive(Debug, Clone, Copy)]
-//pub enum UnaryOperationType {
-//    Negate,
-//}
+#[derive(Debug, Clone, Copy)]
+pub enum UnaryOperationType {
+    Negate,
+}
 
 pub enum AstNode {
     BinaryOperation(BinaryOperationType, Box<AstNode>, Box<AstNode>),
-    //  UnaryOperation(UnaryOperationType, Box<AstNode>),
+    UnaryOperation(UnaryOperationType, Box<AstNode>),
     NumericLiteral(PrimitiveType, PrimitiveValue),
     VariableDeclaration(Symbol),
     Assignment(Symbol, Box<AstNode>),
@@ -42,6 +42,10 @@ impl AstNode {
                 println!("{}{:?}", " ".repeat(indentation), op_type);
                 left.print(indentation + 2);
                 right.print(indentation + 2);
+            }
+            AstNode::UnaryOperation(op_type, node) => {
+                println!("{}{:?}", " ".repeat(indentation), op_type);
+                node.print(indentation + 2);
             }
             AstNode::NumericLiteral(primitive_type, value) => {
                 println!(
@@ -91,8 +95,7 @@ impl AstNode {
                 if let Some(else_code) = else_code {
                     println!("{}}} else {{", " ".repeat(indentation));
                     else_code.print(indentation + 2);
-
-                } 
+                }
                 println!("{}}}", " ".repeat(indentation));
             }
             AstNode::While(condition, code) => {
@@ -132,10 +135,16 @@ impl AstNode {
             AstNode::NumericLiteral(primitive_type, _) => *primitive_type,
             AstNode::Widen(primitive_type, _) => *primitive_type,
             AstNode::Identifier(symbol) => symbol.primitive_type,
+            AstNode::UnaryOperation(op_type, node) => {
+                match op_type {
+                    UnaryOperationType::Negate => 
+                    node.get_primitive_type().switch_sign()
+                }
+            }
             _ => {
                 println!("WARNING: get_primitive_type called for unknown AstNode type!");
                 PrimitiveType::Unknown
-            },
+            }
         }
     }
 }

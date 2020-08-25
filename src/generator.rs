@@ -33,6 +33,7 @@ const MUL_INSTR: &[&str] = &["mulb", "mulw", "mull", "mulq"];
 const DIV_INSTR: &[&str] = &["divb", "divw", "divl", "divq"];
 const CMP_INSTR: &[&str] = &["cmpb", "cmpw", "cmpl", "cmpq"];
 const AND_INSTR: &[&str] = &["andb", "andw", "andl", "andq"];
+const NEG_INSTR: &[&str] = &["negb", "negw", "negl", "negq"];
 
 #[derive(Debug, Copy, Clone)]
 struct Register {
@@ -161,8 +162,8 @@ impl<T: Write> CodeGenerator<T> {
                     left.get_primitive_type().get_size() == right.get_primitive_type().get_size()
                 );
 
-                assert!(!left.get_primitive_type().is_signed());
-                assert!(!right.get_primitive_type().is_signed());
+                //assert!(!left.get_primitive_type().is_signed());
+                //assert!(!right.get_primitive_type().is_signed());
 
                 let left_reg = self.gen_expression(left);
                 let right_reg = self.gen_expression(right);
@@ -245,6 +246,20 @@ impl<T: Write> CodeGenerator<T> {
                     }
                 }
             }
+            AstNode::UnaryOperation(op_type, node) => {
+                let register = self.gen_expression(node);
+
+                //TODO: this might be replaced by register.size
+                let instr_index =
+                    Self::size_to_instruction_index(node.get_primitive_type().get_size());
+
+                self.write(&format!(
+                    "\t{}\t{}",
+                    NEG_INSTR[instr_index], REGISTERS[instr_index][register.index]
+                ));
+
+                register
+            }
             AstNode::NumericLiteral(primitive_type, value) => {
                 let register = self.get_register(primitive_type.get_size());
 
@@ -262,13 +277,14 @@ impl<T: Write> CodeGenerator<T> {
             AstNode::Widen(primitive_type, node) => {
                 let register = self.gen_expression(node);
 
-                assert!(primitive_type.is_unsigned());
+                // assert!(primitive_type.is_unsigned());
                 let result_reg = self.get_register(primitive_type.get_size());
 
                 let src_index =
                     Self::size_to_instruction_index(node.get_primitive_type().get_size());
                 let dst_index = Self::size_to_instruction_index(primitive_type.get_size());
 
+                //TODO: is this sign extension correct?
                 self.write(&format!(
                     "\tmovzx\t{}, {}",
                     REGISTERS[src_index][register.index], REGISTERS[dst_index][result_reg.index]
@@ -293,7 +309,9 @@ impl<T: Write> CodeGenerator<T> {
                     SymbolType::FunctionParameter => {
                         self.write(&format!(
                             "\t{}\t{}, {}",
-                            MOV_INSTR[index], PARAM_REGISTERS[index][symbol.offset as usize], REGISTERS[index][register.index],
+                            MOV_INSTR[index],
+                            PARAM_REGISTERS[index][symbol.offset as usize],
+                            REGISTERS[index][register.index],
                         ));
                     }
                     _ => {
@@ -417,7 +435,7 @@ impl<T: Write> CodeGenerator<T> {
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
-            AstNode::VariableDeclaration(_) => {},
+            AstNode::VariableDeclaration(_) => {}
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
             AstNode::If(condition, code, else_code) => self.gen_if(condition, code, else_code),

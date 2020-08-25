@@ -67,37 +67,85 @@ impl Parser {
             &"printbool".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::Bool],
-            SymbolType::Function
+            SymbolType::Function,
         );
         self.add_to_scope(
             &"print8".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt8],
-            SymbolType::Function
+            SymbolType::Function,
         );
         self.add_to_scope(
             &"print16".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt16],
-            SymbolType::Function
+            SymbolType::Function,
         );
         self.add_to_scope(
             &"print32".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt32],
-            SymbolType::Function
+            SymbolType::Function,
         );
         self.add_to_scope(
             &"print64".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt64],
-            SymbolType::Function
+            SymbolType::Function,
+        );
+        self.add_to_scope(
+            &"prints8".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::Int8],
+            SymbolType::Function,
+        );
+        self.add_to_scope(
+            &"prints16".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::Int16],
+            SymbolType::Function,
+        );
+        self.add_to_scope(
+            &"prints32".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::Int32],
+            SymbolType::Function,
+        );
+        self.add_to_scope(
+            &"prints64".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::Int64],
+            SymbolType::Function,
+        );
+        self.add_to_scope(
+            &"print8".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt8],
+            SymbolType::Function,
+        );
+        self.add_to_scope(
+            &"print16".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt16],
+            SymbolType::Function,
+        );
+        self.add_to_scope(
+            &"print32".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt32],
+            SymbolType::Function,
+        );
+        self.add_to_scope(
+            &"print64".to_string(),
+            PrimitiveType::Void,
+            vec![PrimitiveType::UInt64],
+            SymbolType::Function,
         );
         self.add_to_scope(
             &"printsum".to_string(),
             PrimitiveType::Void,
             vec![PrimitiveType::UInt32, PrimitiveType::UInt32],
-            SymbolType::Function
+            SymbolType::Function,
         );
     }
 
@@ -151,14 +199,48 @@ impl Parser {
         None
     }
 
-    fn add_to_scope(&mut self,  name: &String, primitive_type: PrimitiveType, parameter_types: Vec<PrimitiveType>, symbol_type: SymbolType) -> Symbol {
+    fn add_to_scope(
+        &mut self,
+        name: &String,
+        primitive_type: PrimitiveType,
+        parameter_types: Vec<PrimitiveType>,
+        symbol_type: SymbolType,
+    ) -> Symbol {
         let scope_count = self.scope.len();
         self.scope[scope_count - 1].add(name, primitive_type, parameter_types, symbol_type)
     }
 
-    fn add_to_scope_with_offset(&mut self,  name: &String, primitive_type: PrimitiveType, parameter_types: Vec<PrimitiveType>, symbol_type: SymbolType, offset: i32) -> Symbol {
+    fn add_to_scope_with_offset(
+        &mut self,
+        name: &String,
+        primitive_type: PrimitiveType,
+        parameter_types: Vec<PrimitiveType>,
+        symbol_type: SymbolType,
+        offset: i32,
+    ) -> Symbol {
         let scope_count = self.scope.len();
-        self.scope[scope_count - 1].add_with_offset(name, primitive_type, parameter_types, symbol_type, offset)
+        self.scope[scope_count - 1].add_with_offset(
+            name,
+            primitive_type,
+            parameter_types,
+            symbol_type,
+            offset,
+        )
+    }
+
+    fn parse_prefix_expression(&mut self) -> AstNode {
+        let current_token = self.peek(0);
+
+        match current_token.token_type {
+            TokenType::Minus => {
+                self.assert_consume(TokenType::Minus);
+
+                let node = self.parse_prefix_expression();
+
+                AstNode::UnaryOperation(UnaryOperationType::Negate, Box::new(node))
+            }
+            _ => self.parse_unary_expression(),
+        }
     }
 
     fn parse_unary_expression(&mut self) -> AstNode {
@@ -168,7 +250,7 @@ impl Parser {
             && current_token.token_type != TokenType::Identifier
         {
             self.error(
-                "parse_unary_expression expects IntLiteral, LeftParen or Identifier token type",
+                "parse_unary_expression expects IntLiteral, LeftParen, Identifier token type",
             );
         }
 
@@ -220,7 +302,7 @@ impl Parser {
                 || token.token_type == TokenType::LeftBrace
         };
 
-        let mut left = self.parse_unary_expression();
+        let mut left = self.parse_prefix_expression();
 
         let mut operator = self.peek(0);
 
@@ -240,7 +322,12 @@ impl Parser {
                 .get_primitive_type()
                 .is_compatible_with(&right.get_primitive_type(), false)
             {
-                self.error("Incompatible types in expression");
+                self.error(&format!(
+                    "Incompatible types in expression: src {:?} and dest {:?}, one sided: {}",
+                    left.get_primitive_type(),
+                    right.get_primitive_type(),
+                    false
+                ));
             }
 
             if left.get_primitive_type().get_size() > right.get_primitive_type().get_size() {
@@ -310,7 +397,8 @@ impl Parser {
         //TODO: fix this clone mess
         let symbol = self
             .find_scope_var(&function_name)
-            .expect(&format!("Unknown function: {}", function_name)).clone();
+            .expect(&format!("Unknown function: {}", function_name))
+            .clone();
 
         let mut params: Vec<AstNode> = Vec::new();
 
@@ -413,7 +501,13 @@ impl Parser {
 
             parameter_types.push(param_type);
 
-            self.add_to_scope_with_offset(&param_name, param_type, Vec::new(), SymbolType::FunctionParameter, param_index);
+            self.add_to_scope_with_offset(
+                &param_name,
+                param_type,
+                Vec::new(),
+                SymbolType::FunctionParameter,
+                param_index,
+            );
 
             param_index += 1;
 
@@ -433,11 +527,15 @@ impl Parser {
         self.assert_consume(TokenType::LeftParen);
 
         let parameter_types = self.parse_parameter_list();
-        
         self.assert_consume(TokenType::RightParen);
         let code = self.parse_block();
 
-        let symbol = self.add_to_scope(&function_name, PrimitiveType::Void, parameter_types, SymbolType::Function);
+        let symbol = self.add_to_scope(
+            &function_name,
+            PrimitiveType::Void,
+            parameter_types,
+            SymbolType::Function,
+        );
         AstNode::Function(symbol, Box::new(code))
     }
 

@@ -22,4 +22,29 @@ fn main() {
     print64(w);
     w = 0;
     print64(w - 1);
+
+
+    var q: i8;
+    q = 127 + 1;
+    prints8(q);
+    q = -128 - 1;
+    prints8(q);
+
+    var r: i16;
+    r = 32767 + 1;
+    prints16(r);
+    r = -32768 - 1;
+    prints16(r);
+
+    var s: i32;
+    s = 2147483647 + 1;
+    prints32(s);
+    s = -2147483648 - 1;
+    prints32(s);
+
+    var t: i64;
+    t = 9223372036854775807 + 1;
+    prints64(t);
+    t = -9223372036854775808 - 1;
+    prints64(t);
 }
