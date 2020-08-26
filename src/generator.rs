@@ -73,6 +73,7 @@ impl<T: Write> CodeGenerator<T> {
         (*self.output)
             .write_all(b"\n")
             .expect("Failed to write newline to output file");
+        println!("{}", data);
     }
 
     fn get_register(&mut self, size: i32) -> Register {
