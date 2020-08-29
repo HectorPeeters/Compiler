@@ -25,28 +25,63 @@ pub trait CodeGenerator {
         size_index: usize,
         comparison_type: &str,
     ) -> Register;
-    fn gen_add_instr(&mut self, left_reg: Register, right_reg: Register, size_index: usize) -> Register;
-    fn gen_subtract_instr(&mut self, left_reg: Register, right_reg: Register, size_index: usize) -> Register;
-    fn gen_multiply_instr(&mut self, left_reg: Register, right_reg: Register, size_index: usize) -> Register;
-    fn gen_divide_instr(&mut self, left_reg: Register, right_reg: Register, size_index: usize) -> Register;
-    fn gen_numeric_literal_instr(&mut self, primitive_type: &PrimitiveType, primitive_value: &PrimitiveValue) -> Register;
-    fn gen_widen_instr(&mut self, register: Register, primitive_type: &PrimitiveType, src_index: usize, dest_index: usize) -> Register;
+    fn gen_add_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register;
+    fn gen_subtract_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register;
+    fn gen_multiply_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register;
+    fn gen_divide_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register;
+
+    fn gen_numeric_literal_instr(
+        &mut self,
+        primitive_type: &PrimitiveType,
+        primitive_value: &PrimitiveValue,
+    ) -> Register;
+    fn gen_widen_instr(
+        &mut self,
+        register: Register,
+        primitive_type: &PrimitiveType,
+        src_index: usize,
+        dest_index: usize,
+    ) -> Register;
     fn gen_identifier_instr(&mut self, symbol: &Symbol) -> Register;
     fn gen_functioncall_instr(&mut self, name: &String, params: &Vec<AstNode>);
-    fn gen_if_instr(&mut self, condition: &AstNode, code: &AstNode, else_code: &Option<Box<AstNode>>);
+    fn gen_if_instr(
+        &mut self,
+        condition: &AstNode,
+        code: &AstNode,
+        else_code: &Option<Box<AstNode>>,
+    );
     fn gen_while_instr(&mut self, condition: &AstNode, code: &AstNode);
     fn gen_function_instr(&mut self, symbol: &Symbol, code: &AstNode);
-    
     fn do_post_check(&self) -> bool;
-    
+
     fn error(&self, message: &str) {
         eprintln!("Generator error: {}", message);
         panic!();
     }
 
     fn size_to_instruction_index(size: i32) -> usize {
-         match size {
-             8 => 0,
+        match size {
+            8 => 0,
             16 => 1,
             32 => 2,
             64 => 3,
@@ -73,7 +108,6 @@ pub trait CodeGenerator {
         }
 
         let index = Self::size_to_instruction_index(variable.primitive_type.get_size());
- 
         self.gen_assignment_instr(&variable, reg, index);
 
         self.free_register(reg);
@@ -104,9 +138,7 @@ pub trait CodeGenerator {
                 let index = Self::size_to_instruction_index(left.get_primitive_type().get_size());
 
                 match operation_type {
-                    BinaryOperationType::Add => {
-                        self.gen_add_instr(left_reg, right_reg, index)
-                    }
+                    BinaryOperationType::Add => self.gen_add_instr(left_reg, right_reg, index),
                     BinaryOperationType::Subtract => {
                         self.gen_subtract_instr(left_reg, right_reg, index)
                     }
@@ -150,9 +182,7 @@ pub trait CodeGenerator {
 
                 self.gen_widen_instr(register, &primitive_type, src_index, dst_index)
             }
-            AstNode::Identifier(symbol) => {
-                self.gen_identifier_instr(symbol)
-            }
+            AstNode::Identifier(symbol) => self.gen_identifier_instr(symbol),
             _ => {
                 self.error(&format!("unsupported astnode in gen_expression"));
                 unreachable!();
@@ -163,10 +193,12 @@ pub trait CodeGenerator {
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
-            AstNode::VariableDeclaration(_) => {},
+            AstNode::VariableDeclaration(_) => {}
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
             AstNode::FunctionCall(name, params) => self.gen_functioncall_instr(name, params),
-            AstNode::If(condition, code, else_code) => self.gen_if_instr(condition, code, else_code),
+            AstNode::If(condition, code, else_code) => {
+                self.gen_if_instr(condition, code, else_code)
+            }
             AstNode::While(condition, code) => self.gen_while_instr(condition, code),
             AstNode::Function(symbol, code) => self.gen_function_instr(symbol, code),
             _ => {
