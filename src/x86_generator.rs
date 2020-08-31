@@ -1,7 +1,7 @@
+use crate::ast::*;
 use crate::generator::*;
 use crate::scope::*;
 use crate::types::*;
-use crate::ast::*;
 
 use std::fs::File;
 use std::io::Write;
@@ -37,8 +37,7 @@ pub struct X86CodeGenerator {
 }
 
 impl CodeGenerator for X86CodeGenerator {
-    fn new(output_path: &str) -> Self
-    {
+    fn new(output_path: &str) -> Self {
         X86CodeGenerator {
             output: Box::new(File::create(output_path).expect("Failed to create output file")),
             registers: [None; 4],
@@ -56,8 +55,7 @@ impl CodeGenerator for X86CodeGenerator {
         println!("{}", data);
     }
 
-    fn get_label(&mut self) -> i32
-    {
+    fn get_label(&mut self) -> i32 {
         let result = self.label_index;
         self.label_index += 1;
         result
@@ -65,7 +63,7 @@ impl CodeGenerator for X86CodeGenerator {
 
     fn get_register(&mut self, size: i32) -> Register {
         for i in 0..self.registers.len() {
-            if !self.registers[i].is_some() {
+            if self.registers[i].is_none() {
                 let register = Register { size, index: i };
                 self.registers[i] = Some(register);
                 return register;
@@ -77,7 +75,7 @@ impl CodeGenerator for X86CodeGenerator {
     }
 
     fn free_register(&mut self, reg: Register) {
-        if !self.registers[reg.index].is_some() {
+        if self.registers[reg.index].is_none() {
             self.error("Trying to free a register which is already freed!");
         }
         self.registers[reg.index] = None;
@@ -100,7 +98,9 @@ impl CodeGenerator for X86CodeGenerator {
     ) -> Register {
         self.write(&format!(
             "\t{}\t{}, {}",
-            CMP_INSTR[size_index], REGISTERS[size_index][right_reg.index], REGISTERS[size_index][left_reg.index]
+            CMP_INSTR[size_index],
+            REGISTERS[size_index][right_reg.index],
+            REGISTERS[size_index][left_reg.index]
         ));
         self.write(&format!(
             "\t{}\t{}",
@@ -114,8 +114,13 @@ impl CodeGenerator for X86CodeGenerator {
         self.free_register(left_reg);
         right_reg
     }
-    
-    fn gen_add_instr(&mut self, left_reg: Register, right_reg: Register, size_index: usize) -> Register {
+
+    fn gen_add_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register {
         self.write(&format!(
             "\t{}\t{}, {}",
             ADD_INSTR[size_index],
@@ -127,7 +132,12 @@ impl CodeGenerator for X86CodeGenerator {
         left_reg
     }
 
-    fn gen_subtract_instr(&mut self, left_reg: Register, right_reg: Register, size_index: usize) -> Register {
+    fn gen_subtract_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register {
         self.write(&format!(
             "\t{}\t{}, {}",
             SUB_INSTR[size_index],
@@ -139,7 +149,12 @@ impl CodeGenerator for X86CodeGenerator {
         left_reg
     }
 
-    fn gen_multiply_instr(&mut self, left_reg: Register, right_reg: Register, size_index: usize) -> Register    {
+    fn gen_multiply_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register {
         self.write(&format!(
             "\t{}\t{}, {}\n\t{}\t{}\n\t{}\t{}, {}",
             MOV_INSTR[size_index],
@@ -156,7 +171,12 @@ impl CodeGenerator for X86CodeGenerator {
         left_reg
     }
 
-    fn gen_divide_instr(&mut self, left_reg: Register, right_reg: Register, size_index: usize) -> Register {
+    fn gen_divide_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register {
         self.write(&format!(
             "\t{}\t{}, {}",
             MOV_INSTR[size_index], REGISTERS[size_index][left_reg.index], EAX[size_index]
@@ -175,7 +195,11 @@ impl CodeGenerator for X86CodeGenerator {
         left_reg
     }
 
-    fn gen_numeric_literal_instr(&mut self, primitive_type: &PrimitiveType, primitive_value: &PrimitiveValue) -> Register {
+    fn gen_numeric_literal_instr(
+        &mut self,
+        primitive_type: &PrimitiveType,
+        primitive_value: &PrimitiveValue,
+    ) -> Register {
         let register = self.get_register(primitive_type.get_size());
 
         //TODO: fix hardcoded union access
@@ -190,7 +214,13 @@ impl CodeGenerator for X86CodeGenerator {
         register
     }
 
-    fn gen_widen_instr(&mut self, register: Register, primitive_type: &PrimitiveType, src_index: usize, dest_index: usize)  -> Register {
+    fn gen_widen_instr(
+        &mut self,
+        register: Register,
+        primitive_type: &PrimitiveType,
+        src_index: usize,
+        dest_index: usize,
+    ) -> Register {
         let result_reg = self.get_register(primitive_type.get_size());
 
         self.write(&format!(
@@ -202,44 +232,41 @@ impl CodeGenerator for X86CodeGenerator {
 
         result_reg
     }
-    
-    fn gen_identifier_instr(&mut self, symbol: &Symbol) -> Register
-    {
+
+    fn gen_identifier_instr(&mut self, symbol: &Symbol) -> Register {
         let size = symbol.primitive_type.get_size();
         let register = self.get_register(size);
         let index = Self::size_to_instruction_index(size);
 
         match symbol.symbol_type {
-                    SymbolType::Variable => {
-                        self.write(&format!(
-                            "\t{}\t-{}(%rbp), {}",
-                            MOV_INSTR[index], symbol.offset, REGISTERS[index][register.index],
-                        ));
-                    }
-                    SymbolType::FunctionParameter => {
-                        self.write(&format!(
-                            "\t{}\t{}, {}",
-                            MOV_INSTR[index],
-                            PARAM_REGISTERS[index][symbol.offset as usize],
-                            REGISTERS[index][register.index],
-                        ));
-                    }
-                    _ => {
-                        self.error("Trying to generate from function symbol ast node");
-                    }
-                }
+            SymbolType::Variable => {
+                self.write(&format!(
+                    "\t{}\t-{}(%rbp), {}",
+                    MOV_INSTR[index], symbol.offset, REGISTERS[index][register.index],
+                ));
+            }
+            SymbolType::FunctionParameter => {
+                self.write(&format!(
+                    "\t{}\t{}, {}",
+                    MOV_INSTR[index],
+                    PARAM_REGISTERS[index][symbol.offset as usize],
+                    REGISTERS[index][register.index],
+                ));
+            }
+            _ => {
+                self.error("Trying to generate from function symbol ast node");
+            }
+        }
 
-                register
+        register
     }
 
-    fn gen_functioncall_instr(&mut self, name: &String, params: &Vec<AstNode>) {
-        let mut index: usize = 0;
-
+    fn gen_functioncall_instr(&mut self, name: &str, params: &[AstNode]) {
         assert!(params.len() <= PARAM_REGISTERS.len());
 
         let mut allocated_regs: Vec<Register> = Vec::new();
 
-        for param in params {
+        for (index, param) in params.iter().enumerate() {
             let instr_index =
                 Self::size_to_instruction_index(param.get_primitive_type().get_size());
             let expression_reg = self.gen_expression(param);
@@ -250,15 +277,13 @@ impl CodeGenerator for X86CodeGenerator {
                 PARAM_REGISTERS[3][index], PARAM_REGISTERS[3][index]
             ));
             self.write(&format!(
-                "\t{}\t{}, {}", 
+                "\t{}\t{}, {}",
                 MOV_INSTR[instr_index],
                 REGISTERS[instr_index][expression_reg.index],
                 PARAM_REGISTERS[instr_index][index]
             ));
 
             allocated_regs.push(expression_reg);
-
-            index += 1;
         }
 
         for reg in allocated_regs {
@@ -268,8 +293,12 @@ impl CodeGenerator for X86CodeGenerator {
         self.write(&format!("\tcall\t{}", name));
     }
 
-
-    fn gen_if_instr(&mut self, condition: &AstNode, code: &AstNode, else_code: &Option<Box<AstNode>>) {
+    fn gen_if_instr(
+        &mut self,
+        condition: &AstNode,
+        code: &AstNode,
+        else_code: &Option<Box<AstNode>>,
+    ) {
         let has_else = else_code.is_some();
 
         let condition_reg = self.gen_expression(&condition);

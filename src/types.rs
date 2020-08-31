@@ -32,23 +32,23 @@ impl PrimitiveType {
     }
 
     pub fn is_signed(&self) -> bool {
-        match self {
+        matches!(
+            self,
             PrimitiveType::Int8
-            | PrimitiveType::Int16
-            | PrimitiveType::Int32
-            | PrimitiveType::Int64 => true,
-            _ => false,
-        }
+                | PrimitiveType::Int16
+                | PrimitiveType::Int32
+                | PrimitiveType::Int64
+        )
     }
 
     pub fn is_unsigned(&self) -> bool {
-        match self {
+        matches!(
+            self,
             PrimitiveType::UInt8
-            | PrimitiveType::UInt16
-            | PrimitiveType::UInt32
-            | PrimitiveType::UInt64 => true,
-            _ => false,
-        }
+                | PrimitiveType::UInt16
+                | PrimitiveType::UInt32
+                | PrimitiveType::UInt64
+        )
     }
 
     pub fn is_compatible_with(&self, dest_type: &PrimitiveType, one_sided: bool) -> bool {

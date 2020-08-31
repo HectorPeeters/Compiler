@@ -3,6 +3,8 @@ use crate::lexer::*;
 use crate::scope::*;
 use crate::types::*;
 
+use std::cmp::Ordering;
+
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub enum OperatorPrecedence {
     MulDiv = 200,
@@ -141,7 +143,7 @@ impl Parser {
         self.index >= self.tokens.len()
     }
 
-    fn find_scope_var(&self, name: &String) -> Option<&Symbol> {
+    fn find_scope_var(&self, name: &str) -> Option<&Symbol> {
         for scope in self.scope.iter().rev() {
             if let Some(var) = scope.get(name) {
                 return Some(&var);
@@ -153,7 +155,7 @@ impl Parser {
 
     fn add_to_scope(
         &mut self,
-        name: &String,
+        name: &str,
         primitive_type: PrimitiveType,
         parameter_types: Vec<PrimitiveType>,
         symbol_type: SymbolType,
@@ -164,7 +166,7 @@ impl Parser {
 
     fn add_to_scope_with_offset(
         &mut self,
-        name: &String,
+        name: &str,
         primitive_type: PrimitiveType,
         parameter_types: Vec<PrimitiveType>,
         symbol_type: SymbolType,
@@ -220,7 +222,7 @@ impl Parser {
                 let identifier = self.assert_consume(TokenType::Identifier).value.clone();
                 let scope_var = self
                     .find_scope_var(&identifier)
-                    .expect(&format!("Unknown identifier {}", identifier));
+                    .unwrap_or_else(|| panic!("Unknown identifier {}", identifier));
                 AstNode::Identifier(scope_var.clone())
             }
             _ => unreachable!(),
@@ -255,17 +257,17 @@ impl Parser {
 
             let mut right = self.parse_expression(current_precedence);
 
-            if !left
-                .get_primitive_type()
-                .is_compatible_with(&right.get_primitive_type(), false)
-            {
+            let left_type = left.get_primitive_type();
+            let right_type = right.get_primitive_type();
+
+            if !left_type.is_compatible_with(&right_type, false) {
                 self.error("Incompatible types in expression");
             }
 
-            if left.get_primitive_type().get_size() > right.get_primitive_type().get_size() {
-                right = AstNode::Widen(left.get_primitive_type(), Box::new(right));
-            } else if left.get_primitive_type().get_size() < right.get_primitive_type().get_size() {
-                left = AstNode::Widen(right.get_primitive_type(), Box::new(left));
+            match left_type.get_size().cmp(&right_type.get_size()) {
+                Ordering::Greater => right = AstNode::Widen(left_type, Box::new(right)),
+                Ordering::Less => left = AstNode::Widen(right_type, Box::new(left)),
+                _ => {}
             }
 
             left = AstNode::BinaryOperation(operator_type, Box::new(left), Box::new(right));
@@ -288,7 +290,7 @@ impl Parser {
         type_token
             .value
             .parse::<PrimitiveType>()
-            .expect(&format!("Unknown primitive type: {}", type_token.value))
+            .unwrap_or_else(|_| panic!("Unknown primitive type: {}", type_token.value))
     }
 
     fn parse_variable_declaration(&mut self) -> AstNode {
@@ -300,7 +302,7 @@ impl Parser {
 
         let symbol = self.add_to_scope(&name, primitive_type, Vec::new(), SymbolType::Variable);
 
-        AstNode::VariableDeclaration(symbol.clone())
+        AstNode::VariableDeclaration(symbol)
     }
 
     fn parse_assignment(&mut self) -> AstNode {
@@ -312,7 +314,7 @@ impl Parser {
 
         let scope_var = self
             .find_scope_var(&identifier_name)
-            .expect(&format!("Unknown identifier: {}", identifier_name));
+            .unwrap_or_else(|| panic!("Unknown identifier: {}", identifier_name));
 
         if scope_var.primitive_type.get_size() > expression.get_primitive_type().get_size() {
             expression = AstNode::Widen(scope_var.primitive_type, Box::new(expression));
@@ -329,7 +331,7 @@ impl Parser {
         //TODO: fix this clone mess
         let symbol = self
             .find_scope_var(&function_name)
-            .expect(&format!("Unknown function: {}", function_name))
+            .unwrap_or_else(|| panic!("Unknown function: {}", function_name))
             .clone();
 
         let mut params: Vec<AstNode> = Vec::new();
@@ -429,7 +431,7 @@ impl Parser {
             //TODO: try and remove this clone
             let param_name = &self.assert_consume(TokenType::Identifier).value.clone();
             self.assert_consume(TokenType::Colon);
-            let param_type = self.parse_variable_type().clone();
+            let param_type = self.parse_variable_type();
 
             parameter_types.push(param_type);
 

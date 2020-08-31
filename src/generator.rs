@@ -63,7 +63,7 @@ pub trait CodeGenerator {
         dest_index: usize,
     ) -> Register;
     fn gen_identifier_instr(&mut self, symbol: &Symbol) -> Register;
-    fn gen_functioncall_instr(&mut self, name: &String, params: &Vec<AstNode>);
+    fn gen_functioncall_instr(&mut self, name: &str, params: &[AstNode]);
     fn gen_if_instr(
         &mut self,
         condition: &AstNode,
@@ -184,7 +184,7 @@ pub trait CodeGenerator {
             }
             AstNode::Identifier(symbol) => self.gen_identifier_instr(symbol),
             _ => {
-                self.error(&format!("unsupported astnode in gen_expression"));
+                self.error("unsupported astnode in gen_expression");
                 unreachable!();
             }
         }
