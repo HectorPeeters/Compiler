@@ -2,55 +2,78 @@ use crate::ast::*;
 use crate::scope::*;
 use crate::types::*;
 
-use std::io::Write;
-
-pub struct CodeGenerator<T: Write> {
-    output: Box<T>,
-    registers: [Option<Register>; 4],
-    label_index: i32,
-}
-
-const REGISTERS: &[&[&str]] = &[
-    &["%r8b", "%r9b", "%r10b", "%r11b"],
-    &["%r8w", "%r9w", "%r10w", "%r11w"],
-    &["%r8d", "%r9d", "%r10d", "%r11d"],
-    &["%r8", "%r9", "%r10", "%r11"],
-];
-
-const PARAM_REGISTERS: &[&[&str]] = &[
-    &["%dil", "%sil"],
-    &["%di", "%si"],
-    &["%edi", "%esi"],
-    &["%rdi", "%rsi"],
-];
-
-const EAX: &[&str] = &["%al", "%ax", "%eax", "%rax"];
-
-const MOV_INSTR: &[&str] = &["movb", "movw", "movl", "movq"];
-const ADD_INSTR: &[&str] = &["addb", "addw", "addl", "addq"];
-const SUB_INSTR: &[&str] = &["subb", "subw", "subl", "subq"];
-const MUL_INSTR: &[&str] = &["mulb", "mulw", "mull", "mulq"];
-const DIV_INSTR: &[&str] = &["divb", "divw", "divl", "divq"];
-const CMP_INSTR: &[&str] = &["cmpb", "cmpw", "cmpl", "cmpq"];
-const AND_INSTR: &[&str] = &["andb", "andw", "andl", "andq"];
-
 #[derive(Debug, Copy, Clone)]
-struct Register {
+pub struct Register {
     pub size: i32,
     pub index: usize,
 }
 
-impl<T: Write> CodeGenerator<T> {
-    pub fn new(output: T) -> Self
-    where
-        T: Write + 'static,
-    {
-        CodeGenerator {
-            output: Box::new(output),
-            registers: [None; 4],
-            label_index: 0,
-        }
-    }
+pub trait CodeGenerator {
+    fn new(output_path: &str) -> Self;
+    fn write(&mut self, data: &str);
+
+    fn get_label(&mut self) -> i32;
+
+    fn get_register(&mut self, size: i32) -> Register;
+    fn free_register(&mut self, reg: Register);
+
+    fn gen_assignment_instr(&mut self, variable: &Symbol, register: Register, size_index: usize);
+    fn gen_comparison_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+        comparison_type: &str,
+    ) -> Register;
+    fn gen_add_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register;
+    fn gen_subtract_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register;
+    fn gen_multiply_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register;
+    fn gen_divide_instr(
+        &mut self,
+        left_reg: Register,
+        right_reg: Register,
+        size_index: usize,
+    ) -> Register;
+
+    fn gen_numeric_literal_instr(
+        &mut self,
+        primitive_type: &PrimitiveType,
+        primitive_value: &PrimitiveValue,
+    ) -> Register;
+    fn gen_widen_instr(
+        &mut self,
+        register: Register,
+        primitive_type: &PrimitiveType,
+        src_index: usize,
+        dest_index: usize,
+    ) -> Register;
+    fn gen_identifier_instr(&mut self, symbol: &Symbol) -> Register;
+    fn gen_functioncall_instr(&mut self, name: &String, params: &Vec<AstNode>);
+    fn gen_if_instr(
+        &mut self,
+        condition: &AstNode,
+        code: &AstNode,
+        else_code: &Option<Box<AstNode>>,
+    );
+    fn gen_while_instr(&mut self, condition: &AstNode, code: &AstNode);
+    fn gen_function_instr(&mut self, symbol: &Symbol, code: &AstNode);
+    fn do_post_check(&self) -> bool;
+
     fn error(&self, message: &str) {
         eprintln!("Generator error: {}", message);
         panic!();
@@ -66,46 +89,10 @@ impl<T: Write> CodeGenerator<T> {
         }
     }
 
-    fn write(&mut self, data: &str) {
-        (*self.output)
-            .write_all(data.as_bytes())
-            .expect("Failed to write to output file");
-        (*self.output)
-            .write_all(b"\n")
-            .expect("Failed to write newline to output file");
-        println!("{}", data);
-    }
-
-    fn get_register(&mut self, size: i32) -> Register {
-        for i in 0..self.registers.len() {
-            if !self.registers[i].is_some() {
-                let register = Register { size, index: i };
-                self.registers[i] = Some(register);
-                return register;
-            }
-        }
-
-        self.error("Out of registers!");
-        unreachable!();
-    }
-
-    fn free_register(&mut self, reg: Register) {
-        if !self.registers[reg.index].is_some() {
-            self.error("Trying to free a register which is already freed!");
-        }
-        self.registers[reg.index] = None;
-    }
-
     fn gen_block(&mut self, children: &[AstNode]) {
         for child in children {
             self.gen_node(child);
         }
-    }
-
-    fn get_label(&mut self) -> i32 {
-        let result = self.label_index;
-        self.label_index += 1;
-        result
     }
 
     fn gen_assignment(&mut self, variable: &Symbol, expression: &AstNode) {
@@ -121,13 +108,7 @@ impl<T: Write> CodeGenerator<T> {
         }
 
         let index = Self::size_to_instruction_index(variable.primitive_type.get_size());
-
-        //TODO: Move all subq calls to one big subq at the start of the scope
-        self.write(&format!("\tsubq\t${}, %rsp", variable.offset));
-        self.write(&format!(
-            "\t{}\t{}, -{}(%rbp)",
-            MOV_INSTR[index], REGISTERS[index][reg.index], variable.offset
-        ));
+        self.gen_assignment_instr(&variable, reg, index);
 
         self.free_register(reg);
     }
@@ -139,20 +120,7 @@ impl<T: Write> CodeGenerator<T> {
         index: usize,
         comparison_type: &str,
     ) -> Register {
-        self.write(&format!(
-            "\t{}\t{}, {}",
-            CMP_INSTR[index], REGISTERS[index][right_reg.index], REGISTERS[index][left_reg.index]
-        ));
-        self.write(&format!(
-            "\t{}\t{}",
-            comparison_type, REGISTERS[0][right_reg.index]
-        ));
-        self.write(&format!(
-            "\t{}\t$255, {}",
-            AND_INSTR[index], REGISTERS[index][right_reg.index]
-        ));
-        self.free_register(left_reg);
-        right_reg
+        self.gen_comparison_instr(left_reg, right_reg, index, comparison_type)
     }
 
     fn gen_expression(&mut self, expression: &AstNode) -> Register {
@@ -170,140 +138,51 @@ impl<T: Write> CodeGenerator<T> {
                 let index = Self::size_to_instruction_index(left.get_primitive_type().get_size());
 
                 match operation_type {
-                    BinaryOperationType::Add => {
-                        self.write(&format!(
-                            "\t{}\t{}, {}",
-                            ADD_INSTR[index],
-                            REGISTERS[index][right_reg.index],
-                            REGISTERS[index][left_reg.index]
-                        ));
-                        self.free_register(right_reg);
-
-                        left_reg
-                    }
+                    BinaryOperationType::Add => self.gen_add_instr(left_reg, right_reg, index),
                     BinaryOperationType::Subtract => {
-                        self.write(&format!(
-                            "\t{}\t{}, {}",
-                            SUB_INSTR[index],
-                            REGISTERS[index][right_reg.index],
-                            REGISTERS[index][left_reg.index]
-                        ));
-                        self.free_register(right_reg);
-
-                        left_reg
+                        self.gen_subtract_instr(left_reg, right_reg, index)
                     }
                     BinaryOperationType::Multiply => {
-                        self.write(&format!(
-                            "\t{}\t{}, {}\n\t{}\t{}\n\t{}\t{}, {}",
-                            MOV_INSTR[index],
-                            REGISTERS[index][right_reg.index],
-                            EAX[index],
-                            MUL_INSTR[index],
-                            REGISTERS[index][left_reg.index],
-                            MOV_INSTR[index],
-                            EAX[index],
-                            REGISTERS[index][left_reg.index]
-                        ));
-                        self.free_register(right_reg);
-
-                        left_reg
+                        self.gen_multiply_instr(left_reg, right_reg, index)
                     }
                     BinaryOperationType::Divide => {
-                        self.write(&format!(
-                            "\t{}\t{}, {}",
-                            MOV_INSTR[index], REGISTERS[index][left_reg.index], EAX[index]
-                        ));
-                        self.write("\tcltd");
-                        self.write(&format!(
-                            "\t{}\t{}",
-                            DIV_INSTR[index], REGISTERS[index][right_reg.index]
-                        ));
-                        self.write(&format!(
-                            "\t{}\t{}, {}",
-                            MOV_INSTR[index], EAX[index], REGISTERS[index][left_reg.index]
-                        ));
-                        self.free_register(right_reg);
-
-                        left_reg
+                        self.gen_divide_instr(left_reg, right_reg, index)
                     }
                     BinaryOperationType::Equals => {
-                        self.gen_comparison(left_reg, right_reg, index, "sete")
+                        self.gen_comparison_instr(left_reg, right_reg, index, "sete")
                     }
                     BinaryOperationType::NotEquals => {
-                        self.gen_comparison(left_reg, right_reg, index, "setne")
+                        self.gen_comparison_instr(left_reg, right_reg, index, "setne")
                     }
                     BinaryOperationType::LessThan => {
-                        self.gen_comparison(left_reg, right_reg, index, "setl")
+                        self.gen_comparison_instr(left_reg, right_reg, index, "setl")
                     }
                     BinaryOperationType::LessThanOrEqual => {
-                        self.gen_comparison(left_reg, right_reg, index, "setle")
+                        self.gen_comparison_instr(left_reg, right_reg, index, "setle")
                     }
                     BinaryOperationType::GreaterThan => {
-                        self.gen_comparison(left_reg, right_reg, index, "setg")
+                        self.gen_comparison_instr(left_reg, right_reg, index, "setg")
                     }
                     BinaryOperationType::GreaterThanOrEqual => {
-                        self.gen_comparison(left_reg, right_reg, index, "setge")
+                        self.gen_comparison_instr(left_reg, right_reg, index, "setge")
                     }
                 }
             }
             AstNode::NumericLiteral(primitive_type, value) => {
-                let register = self.get_register(primitive_type.get_size());
-
-                //TODO: fix hardcoded union access
-                //TODO: fix hardcoded mov to 64bit reg
-                self.write(&format!(
-                    "\t{}\t${}, {}",
-                    MOV_INSTR[3],
-                    unsafe { value.int64 },
-                    REGISTERS[3][register.index]
-                ));
-
-                register
+                self.gen_numeric_literal_instr(primitive_type, value)
             }
             AstNode::Widen(primitive_type, node) => {
                 let register = self.gen_expression(node);
 
                 assert!(primitive_type.is_unsigned());
-                let result_reg = self.get_register(primitive_type.get_size());
 
                 let src_index =
                     Self::size_to_instruction_index(node.get_primitive_type().get_size());
                 let dst_index = Self::size_to_instruction_index(primitive_type.get_size());
 
-                self.write(&format!(
-                    "\tmovzx\t{}, {}",
-                    REGISTERS[src_index][register.index], REGISTERS[dst_index][result_reg.index]
-                ));
-
-                self.free_register(register);
-
-                result_reg
+                self.gen_widen_instr(register, &primitive_type, src_index, dst_index)
             }
-            AstNode::Identifier(symbol) => {
-                let size = symbol.primitive_type.get_size();
-                let register = self.get_register(size);
-                let index = Self::size_to_instruction_index(size);
-
-                match symbol.symbol_type {
-                    SymbolType::Variable => {
-                        self.write(&format!(
-                            "\t{}\t-{}(%rbp), {}",
-                            MOV_INSTR[index], symbol.offset, REGISTERS[index][register.index],
-                        ));
-                    }
-                    SymbolType::FunctionParameter => {
-                        self.write(&format!(
-                            "\t{}\t{}, {}",
-                            MOV_INSTR[index], PARAM_REGISTERS[index][symbol.offset as usize], REGISTERS[index][register.index],
-                        ));
-                    }
-                    _ => {
-                        self.error("Trying to generate from function symbol ast node");
-                    }
-                }
-
-                register
-            }
+            AstNode::Identifier(symbol) => self.gen_identifier_instr(symbol),
             _ => {
                 self.error(&format!("unsupported astnode in gen_expression"));
                 unreachable!();
@@ -311,119 +190,17 @@ impl<T: Write> CodeGenerator<T> {
         }
     }
 
-    fn gen_functioncall(&mut self, name: &String, params: &Vec<AstNode>) {
-        let mut index: usize = 0;
-
-        assert!(params.len() <= PARAM_REGISTERS.len());
-
-        let mut allocated_regs: Vec<Register> = Vec::new();
-
-        for param in params {
-            let instr_index =
-                Self::size_to_instruction_index(param.get_primitive_type().get_size());
-            let expression_reg = self.gen_expression(param);
-
-            //TODO: fix this
-            self.write(&format!(
-                "\txor\t\t{},{}",
-                PARAM_REGISTERS[3][index], PARAM_REGISTERS[3][index]
-            ));
-            self.write(&format!(
-                "\t{}\t{}, {}",
-                MOV_INSTR[instr_index],
-                REGISTERS[instr_index][expression_reg.index],
-                PARAM_REGISTERS[instr_index][index]
-            ));
-
-            allocated_regs.push(expression_reg);
-
-            index += 1;
-        }
-
-        for reg in allocated_regs {
-            self.free_register(reg);
-        }
-
-        self.write(&format!("\tcall\t{}", name));
-    }
-
-    fn gen_if(&mut self, condition: &AstNode, code: &AstNode, else_code: &Option<Box<AstNode>>) {
-        let has_else = else_code.is_some();
-
-        let condition_reg = self.gen_expression(&condition);
-
-        let else_label = self.get_label();
-        let end_label = self.get_label();
-
-        let instr_index = Self::size_to_instruction_index(condition_reg.size);
-
-        self.write(&format!(
-            "\t{}\t$0, {}",
-            CMP_INSTR[instr_index], REGISTERS[instr_index][condition_reg.index]
-        ));
-        self.write(&format!(
-            "\tjz\t\tL{}",
-            if has_else { else_label } else { end_label }
-        ));
-        self.gen_node(code);
-        self.write(&format!("\tjmp L{}", end_label));
-        if has_else {
-            self.write(&format!("L{}:", else_label));
-            if let Some(else_code) = else_code {
-                self.gen_node(else_code);
-            }
-        }
-        self.write(&format!("L{}:", end_label));
-
-        self.free_register(condition_reg);
-    }
-
-    fn gen_while(&mut self, condition: &AstNode, code: &AstNode) {
-        let start_label = self.get_label();
-        let end_label = self.get_label();
-
-        self.write(&format!("L{}:", start_label));
-
-        let condition_reg = self.gen_expression(condition);
-
-        let instr_index = Self::size_to_instruction_index(condition_reg.size);
-
-        self.write(&format!(
-            "\t{}\t$0, {}",
-            CMP_INSTR[instr_index], REGISTERS[instr_index][condition_reg.index]
-        ));
-        self.write(&format!("\tjz\t\tL{}", end_label));
-        self.gen_node(code);
-
-        self.write(&format!("\tjmp\t\tL{}", start_label));
-        self.write(&format!("L{}:", end_label));
-
-        self.free_register(condition_reg);
-    }
-
-    fn gen_function(&mut self, symbol: &Symbol, code: &AstNode) {
-        assert!(symbol.symbol_type == SymbolType::Function);
-
-        self.write(&format!("{}:", symbol.name));
-        self.write("\tpush\t%rbp");
-        self.write("\tmov\t\t%rsp, %rbp");
-        self.gen_node(code);
-        self.write("\tmov\t\t%rbp, %rsp");
-        self.write("\tpop\t\t%rbp");
-
-        assert!(symbol.primitive_type == PrimitiveType::Void);
-        self.write("\tret");
-    }
-
     fn gen_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Block(children) => self.gen_block(children),
-            AstNode::VariableDeclaration(_) => {},
+            AstNode::VariableDeclaration(_) => {}
             AstNode::Assignment(var, expression) => self.gen_assignment(var, expression),
-            AstNode::FunctionCall(name, params) => self.gen_functioncall(name, params),
-            AstNode::If(condition, code, else_code) => self.gen_if(condition, code, else_code),
-            AstNode::While(condition, code) => self.gen_while(condition, code),
-            AstNode::Function(symbol, code) => self.gen_function(symbol, code),
+            AstNode::FunctionCall(name, params) => self.gen_functioncall_instr(name, params),
+            AstNode::If(condition, code, else_code) => {
+                self.gen_if_instr(condition, code, else_code)
+            }
+            AstNode::While(condition, code) => self.gen_while_instr(condition, code),
+            AstNode::Function(symbol, code) => self.gen_function_instr(symbol, code),
             _ => {
                 self.error("Trying to generate assembly for unsupported ast node!");
                 unreachable!();
@@ -431,16 +208,12 @@ impl<T: Write> CodeGenerator<T> {
         }
     }
 
-    pub fn gen(&mut self, node: &AstNode) {
+    fn gen(&mut self, node: &AstNode) {
         self.write("\t.globl\tmain");
         self.write("\t.type\tmain, @function");
 
         self.gen_node(node);
 
-        for i in 0..self.registers.len() {
-            if self.registers[i].is_some() {
-                self.error("Not all registers were freed!");
-            }
-        }
+        self.do_post_check();
     }
 }

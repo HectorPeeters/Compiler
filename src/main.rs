@@ -7,9 +7,10 @@ mod generator;
 use generator::*;
 mod scope;
 mod types;
+mod x86_generator;
+use x86_generator::*;
 
 use clap::{App, Arg};
-use std::fs::File;
 
 fn main() {
     let matches = App::new("Compiler")
@@ -38,7 +39,6 @@ fn main() {
     result_node.print(0);
 
     println!("\n===== Code Generation =====");
-    let mut generator =
-        CodeGenerator::new(File::create("output.s").expect("Failed to open output file"));
+    let mut generator = X86CodeGenerator::new("output.s");
     generator.gen(&result_node);
 }
